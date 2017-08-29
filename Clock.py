@@ -6,43 +6,27 @@ import matplotlib as matplotlib
 import mne as mne
 import os.path as op
 import glob
-from collections import defaultdict
+#from collections import defaultdict
+import sys
+#plt.ion()
 #matplotlib.use('Qt4Agg')
 #rm ~/.ICEauthority
 
 #### scripts to use MNE to analyze Clock MEG data
 
-#### examples to consult
+def raw_to_epoch(subject, Event_types):
+	'''short hand to load raw fif across runs, and return a combined epoch object
+	input: subject, Event_types
+	Event_types is a list of strings to indicate the event type you want to extract from raw. possible choices are:
+	Event_types = ['clock', 'feedback', 'ITI', 'RT']
 
-# from start to finish
-# https://martinos.org/mne/stable/auto_tutorials/plot_introduction.html
-	
-# MNE read events
-# https://martinos.org/mne/stable/generated/mne.read_events.html#mne.read_events
-
-# time frequency
-# https://martinos.org/mne/stable/auto_examples/time_frequency/plot_time_frequency_simulated.html#sphx-glr-auto-examples-time-frequency-plot-time-frequency-simulated-py
-# https://martinos.org/mne/stable/auto_tutorials/plot_stats_cluster_time_frequency.html
-# https://martinos.org/mne/stable/auto_tutorials/plot_sensors_time_frequency.html
-
-# Will’s timing script
-# https://github.com/LabNeuroCogDevel/EmoClock.py/blob/master/timing.py
-
-# epoching
-# https://martinos.org/mne/stable/generated/mne.concatenate_epochs.html?highlight=concatenate#mne.concatenate_epochs
-
-# artifact rejection
-# http://autoreject.github.io/
-
-## read raw
-
-def raw_to_epoch(subject):
-	'''short hand to load raw fif across runs, and return a combined epoch object'''
+	The return of this function will be a dictionary, where key is the event_type, and the item is the mne epoch object.
+	'''
 	
 	#setup variables
 	datapath = '/home/despoB/kaihwang/Clock/'
 	
-	Event_types =['clock', 'feedback', 'ITI', 'RT']
+	#Event_types = ['clock', 'feedback', 'ITI', 'RT']
 
 	Event_codes = {
 	'clock' : { 
@@ -85,8 +69,6 @@ def raw_to_epoch(subject):
 	'DEV.scram.score' : 226,
 	'IEV.scram.score' : 235,
 	}}
-
-
 
 	Epoch_timings = {
 	'clock'   : [-1,4],
@@ -133,14 +115,61 @@ def raw_to_epoch(subject):
 					mne.Epochs(raw, events=triggers, event_id=Event_codes[event], tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')))
 	
 
-	return epochs		
-		
-epochs = raw_to_epoch(11288)
-		
-		
-			
+	return epochs	
 
 
+def	epoch_to_evoke(epochs, Event_types, plot = False):
+	#Event_types =['clock', 'feedback', 'ITI', 'RT']
+	evoked = {}
+	for event in Event_types:
+		evoked[event] = epochs[event].average()
+
+		if plot == True:
+			evoked[event].plot()
+			mne.viz.plot_evoked_topo(evoked[event])	
+	return evoked		
+
+
+def epoch_to_TFR(epochs, event, average = True):
+	freqs = np.logspace(*np.log10([2, 50]), num=20)
+	n_cycles = freqs / 2.
+	if average == True:
+		n_jobs = 3
+	else:
+		n_jobs = 1
+	power = mne.time_frequency.tfr_morlet(epochs[event], freqs=freqs, n_cycles=n_cycles, return_itc=False, n_jobs=n_jobs, average = average)
+
+	return power
+
+
+if __name__ == "__main__":	
+	
+	##### variables
+	subject = raw_input()
+	Event_types =['clock', 'feedback', 'ITI', 'RT']
+	datapath = '/home/despoB/kaihwang/Clock/'
+
+	##### create epoch object
+	epochs = raw_to_epoch(subject, Event_types)
+	for event in Event_types:
+		fn = datapath + '%s/MEG/%s_%s-epo.fif.gz' %(subject, subject, event)
+		epochs[event].save(fn)
+
+	##### plot examine and evoke responses 		
+	#evoked = epoch_to_evoke(epochs,, Event_types, plot = False)
+
+	#### do TFR
+	power = {}
+	for event in Event_types:
+		# for now only output average to save space
+		power[event] = epoch_to_TFR(epochs, event, average = True)
+		fn = datapath + '%s/MEG/%s_%s-avepower-epo.fif.gz' %(subject, subject, event)
+		power[event].save(fn)
+
+	#### visualize	
+	#power.plot_topomap(ch_type='grad', tmin=0.2, tmax=0.5, fmin=4, fmax=8,
+    #               baseline=(-0.5, 0), mode='logratio',
+    #                title='Beta', vmax=0.45, show=True)
 
 
 
@@ -154,17 +183,6 @@ epochs = raw_to_epoch(11288)
 #reject = {'mag': 4e-12, 'eog': 200e-6}
 #tmin, tmax = -0.2, 0.5
 # epochs.plot(block=True)
-
-
-##average
-picks = mne.pick_types(epochs.info, meg=True, eog=True)
-evoked_clock = epochs['CEV.scram.face'].average(picks=picks)
-evoked_clock.plot() 
-
-
-
-##TFR
-epochs.plot_psd_topomap(ch_type='grad', normalize=True)
 
 
 
