@@ -94,7 +94,7 @@ def raw_to_epoch(subject, Event_types):
 				fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
 				triggers = mne.read_events(glob.glob(fn)[0])
 				triggers[1:,0] = triggers[1:,0] +213 #shift 850ms
-				triggers = np.delete(triggers, -1, 0)  # delete the last row becuase for some runs final trial doesn't have a long enough ITI. UGH
+				triggers = np.delete(triggers, -1, 0)  # delete the last row becuase for some runs final trial doesn't have a long enough ITI. UGH.
 				baseline = None
 
 			elif event == 'RT':
@@ -114,8 +114,7 @@ def raw_to_epoch(subject, Event_types):
 			else: #concat epochs
 				epochs[event] = mne.concatenate_epochs((epochs[event], 
 					mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')))
-	
+						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')))	
 
 	return epochs	
 
@@ -129,6 +128,7 @@ def	epoch_to_evoke(epochs, Event_types, plot = False):
 		if plot == True:
 			evoked[event].plot()
 			mne.viz.plot_evoked_topo(evoked[event])	
+
 	return evoked		
 
 
@@ -169,9 +169,46 @@ def indiv_subject_raw_to_tfr(subject):
 		mne.time_frequency.write_tfrs(fn, power, overwrite = True)	
 
 
-def group_average_power(subjects, event):
+def group_average_evoke(subjects, event):
+	'''average evoke response'''
+	
+	datapath = '/home/despoB/kaihwang/Clock/'
+
+	subject = str(int(subjects[0]))
+	fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
+	e = mne.read_epochs(fn)
+	a = e.average()
+	e_sum = np.zeros(a.data.shape) 
+
+	for n, subject in enumerate(subjects):
+		subject = str(int(subject))		
+		fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
+		e = mne.read_epochs(fn)
+		a = e.average() ### note, basline already applied during epoching
+		e_sum = e_sum + a.data
+	e_ave = a.copy()
+	e_ave.nave = n+1
+	e_ave.data = e_sum / (n+1)	
+
+	return e_ave 	
+
+
+def run_group_ave_evoke():
+	save_path='/home/despoB/kaihwang/bin/Clock'
+	Event_types =['clock', 'feedback', 'RT']
+	subjects = np.loadtxt(save_path+'/TFR_subjects', dtype=int)
+
+	for event in Event_types:
+		aveEvoke = group_average_evoke(subjects, event)
+		fn = save_path +'/Data/group_%s_evoke.fif' %(event)
+		mne.write_evokeds(fn, aveEvoke)	
+
+
+
+def group_average_power(subjects, event, normalize_within_subject = False):
 	''' load averaged TFR from subjects, average across subjects, and return group average TFR for plotting
 	Event_types =['clock', 'feedback', 'ITI', 'RT']
+	also need to set whether or not to normalize TFR within a subject
 	'''
 	datapath = '/home/despoB/kaihwang/Clock/'	
 	
@@ -179,16 +216,25 @@ def group_average_power(subjects, event):
 	subject = str(int(subjects[0]))
 	fn = datapath + '%s/MEG/%s_%s-avepower-tfr.h5' %(subject, subject, event)
 	pow = mne.time_frequency.read_tfrs(fn)
-	pow_Sum =np.zeros(pow[0].data.shape) 
+	pow_Sum = np.zeros(pow[0].data.shape) 
+
 	
 	#averaging
 	for n, subject in enumerate(subjects):
 		subject = str(int(subject))
+
 		fn = datapath + '%s/MEG/%s_%s-avepower-tfr.h5' %(subject, subject, event)
 		pow = mne.time_frequency.read_tfrs(fn)
-		pow_Sum = pow_Sum + pow[0].data
-	
-	
+
+		if normalize_within_subject:
+			fn = datapath + '%s/MEG/%s_%s-avepower-tfr.h5' %(subject, subject, 'ITI')
+			baseline = mne.time_frequency.read_tfrs(fn)
+			baseline_mean = np.repeat(np.mean(baseline[0].data, axis = 2)[:, :, np.newaxis], pow[0].data.shape[2], axis=2) # mean across time
+			baseline_sd = np.repeat(np.std(baseline[0].data, axis = 2)[:, :, np.newaxis], pow[0].data.shape[2], axis=2) # sd across time	
+			pow_Sum = pow_Sum + ((pow[0].data - baseline_mean)/baseline_sd)
+		else:
+			pow_Sum = pow_Sum + pow[0].data
+
 	pow_ave = pow[0].copy()
 	pow_ave.nave = n+1
 	pow_ave.data = pow_Sum / (n+1)
@@ -198,50 +244,36 @@ def group_average_power(subjects, event):
 
 def run_group_ave_power():
 	save_path='/home/despoB/kaihwang/bin/Clock'
-	Event_types =['clock', 'feedback', 'ITI', 'RT']
+	Event_types =['clock', 'feedback', 'RT']
 	subjects = np.loadtxt(save_path+'/TFR_subjects', dtype=int)
-	
+
 	for event in Event_types:
-		power = group_average_power(subjects, event)
+		power = group_average_power(subjects, event, normalize_within_subject = True)
 		fn = save_path +'/Data/group_%s_power-tfr.h5' %(event)
 		mne.time_frequency.write_tfrs(fn, power, overwrite = True)	
+
+
 
 
 if __name__ == "__main__":	
 	
-	##### run indiv subject
+	#### run indiv subject pipeline
 	# subject = raw_input()
 	# indiv_subject_raw_to_tfr(subject)
 
-	### group averaged TFR power
+
+	#### group average evoke response
+	run_group_ave_evoke()
+
+	#### group averaged TFR power
 	# run_group_ave_power()
-	save_path='/home/despoB/kaihwang/bin/Clock'
-	Event_types =['clock', 'feedback', 'ITI', 'RT']
-	subjects = np.loadtxt(save_path+'/TFR_subjects', dtype=int)
-	
-	for event in Event_types:
-		power = group_average_power(subjects, event)
-		fn = save_path +'/Data/group_%s_power-tfr.h5' %(event)
-		mne.time_frequency.write_tfrs(fn, power, overwrite = True)	
+
 
 
 #to access data: power[event].data
 #to access time: power[event].time
 #to access fre : power[event].freqs
 #to accesss ave: power[event].nave
-
-#power['ITI'].plot_topomap(ch_type='grad', tmin=0.2, tmax=0.5, fmin=4, fmax=8, baseline=(-0.5, 0), mode='logratio',title='Beta', vmax=0.45, show=True)
-
-## examine raw
-# order = np.arange(raw.info['nchan'])
-# order[9] = 310  # We exchange the plotting order of two channels
-# order[310] = 9  # to show the trigger channel as the 10th channel.
-# raw.plot(n_channels=10, order=order, block=True)
-
-# Only pick MEG and EOG channels.
-#reject = {'mag': 4e-12, 'eog': 200e-6}
-#tmin, tmax = -0.2, 0.5
-# epochs.plot(block=True)
 
 
 
