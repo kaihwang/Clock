@@ -200,7 +200,7 @@ def run_group_ave_evoke():
 
 	for event in Event_types:
 		aveEvoke = group_average_evoke(subjects, event)
-		fn = save_path +'/Data/group_%s_evoke.fif' %(event)
+		fn = save_path +'/Data/group_%s-evoke-ave.fif' %(event)
 		mne.write_evokeds(fn, aveEvoke)	
 
 
@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
 
 	#### group average evoke response
-	run_group_ave_evoke()
+	#run_group_ave_evoke()
 
 	#### group averaged TFR power
 	# run_group_ave_power()
