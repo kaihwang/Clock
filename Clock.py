@@ -6,6 +6,8 @@ import matplotlib as matplotlib
 import mne as mne
 import os.path as op
 import glob
+from autoreject import LocalAutoRejectCV
+from autoreject import get_rejection_threshold
 #from collections import defaultdict
 import sys
 #plt.ion()
@@ -14,7 +16,7 @@ import sys
 
 #### scripts to use MNE to analyze Clock MEG data
 
-def raw_to_epoch(subject, Event_types):
+def raw_to_epoch(subject, Event_types, autoreject = False):
 	'''short hand to load raw fif across runs, and return a combined epoch object
 	input: subject, Event_types
 	Event_types is a list of strings to indicate the event type you want to extract from raw. possible choices are:
@@ -116,8 +118,18 @@ def raw_to_epoch(subject, Event_types):
 					mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
 						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')))	
 
-	return epochs	
+	#run autoreject after compile			
+	if autoreject:
 
+		epochs_clean = dict.fromkeys(Event_types)
+		for event in Event_types:
+			ar = LocalAutoRejectCV()
+			epochs_clean[event] = ar.fit_transform(epochs[event])
+			reject = get_rejection_threshold(epochs[event])	
+	
+		return epochs_clean, reject	
+	
+	return epochs	
 
 def	epoch_to_evoke(epochs, Event_types, plot = False):
 	#Event_types =['clock', 'feedback', 'ITI', 'RT']
@@ -261,9 +273,23 @@ if __name__ == "__main__":
 	# subject = raw_input()
 	# indiv_subject_raw_to_tfr(subject)
 
+	#### test autorejct bad trials
+	# datapath = '/home/despoB/kaihwang/Clock/'
+	# subject = 10637
+	# event='clock'
+	# fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
+	# epochs = mne.read_epochs(fn)
+
+	# from autoreject import LocalAutoRejectCV
+	# ar = LocalAutoRejectCV()
+	# epochs_clean = ar.fit_transform(epochs) 
+
+	# from autoreject import get_rejection_threshold
+	# reject = get_rejection_threshold(epochs)
+
 
 	#### group average evoke response
-	#run_group_ave_evoke()
+	run_group_ave_evoke()
 
 	#### group averaged TFR power
 	# run_group_ave_power()
