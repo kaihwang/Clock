@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
 
 	#### group average evoke response
-	run_group_ave_evoke()
+	#run_group_ave_evoke()
 
 	#### group averaged TFR power
 	# run_group_ave_power()
