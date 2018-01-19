@@ -10,13 +10,18 @@ from autoreject import LocalAutoRejectCV
 from autoreject import get_rejection_threshold
 #from collections import defaultdict
 import sys
+from scipy import io
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import pickle
+
 #plt.ion()
 #matplotlib.use('Qt4Agg')
 #rm ~/.ICEauthority
 
 #### scripts to use MNE to analyze Clock MEG data
 
-def raw_to_epoch(subject, Event_types, autoreject = False):
+def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False):
 	'''short hand to load raw fif across runs, and return a combined epoch object
 	input: subject, Event_types
 	Event_types is a list of strings to indicate the event type you want to extract from raw. possible choices are:
@@ -112,11 +117,11 @@ def raw_to_epoch(subject, Event_types, autoreject = False):
 
 			if r == 1: #create epoch with first run	
 				epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-					tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')
+					tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')
 			else: #concat epochs
 				epochs[event] = mne.concatenate_epochs((epochs[event], 
 					mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=picks, on_missing = 'ignore')))	
+						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')))	
 
 	#run autoreject after compile			
 	if autoreject:
@@ -130,6 +135,31 @@ def raw_to_epoch(subject, Event_types, autoreject = False):
 		return epochs_clean, reject	
 	
 	return epochs	
+
+
+def get_dropped_trials_list(epoch):
+	'''mne read epoch will automatically drop trials that are too short without warning, need to retrieve those tiral numbers...'''
+	'''not using array because boolean is strange'''
+
+	drop_log = epoch['clock'].drop_log
+	trial_list = []
+
+	# event lists start with "0 0 0", get rid of those
+	for n in range(0,len(drop_log)):
+		if drop_log[n] == ['IGNORED']:
+			trial_list.append(n)
+
+	for index in sorted(trial_list, reverse=True):		
+		del drop_log[index]
+
+	drop_list = []	
+	for n in range(0,len(drop_log)):	
+		if drop_log[n]!=[]:  #dropped for whatever reason
+			 drop_list.append(n)
+	
+	drop_list = np.array(drop_list)		 
+	return drop_list	 
+
 
 def	epoch_to_evoke(epochs, Event_types, plot = False):
 	#Event_types =['clock', 'feedback', 'ITI', 'RT']
@@ -265,7 +295,13 @@ def run_group_ave_power():
 		mne.time_frequency.write_tfrs(fn, power, overwrite = True)	
 
 
-
+def save_object(obj, filename):
+	''' Simple function to write out objects into a pickle file
+	usage: save_object(obj, filename)
+	'''
+	with open(filename, 'wb') as output:
+		pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+	#M = pickle.load(open(f, "rb"))	
 
 if __name__ == "__main__":	
 	
@@ -296,11 +332,80 @@ if __name__ == "__main__":
 
 
 
-#to access data: power[event].data
-#to access time: power[event].time
-#to access fre : power[event].freqs
-#to accesss ave: power[event].nave
+	#to access data: power[event].data
+	#to access time: power[event].time
+	#to access fre : power[event].freqs
+	#to accesss ave: power[event].nave
 
+
+
+
+
+	### test TFT regression pipeline
+	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	Event_types=['clock']
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	chname = 'MEG1243'
+	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	
+
+	Data = dict()
+	for s, subject in enumerate(subjects):
+		# create epoch with one channel of data
+		e = raw_to_epoch(subject, Event_types, channels_list = pick_ch, autoreject = False)
+
+		#get list of trials dropped
+		drops = get_dropped_trials_list(e)
+
+		# get trial by trial TFR
+		event = 'clock'
+		TFR = epoch_to_TFR(e, event, average = False)
+		#TFR.data dimension is trial x channel x freq x time
+
+		#baseline correction
+		TFR.apply_baseline((-1,-.5), mode='percent')
+
+		#get model parameters
+		fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
+		pe = io.loadmat(fn)
+		fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
+		value = io.loadmat(fn)
+		
+		pe = np.delete(pe['pe'],drops, axis=0)
+		pe = np.max(pe,axis=1) #for prediction error take the max
+		value = np.delete(value['value'],drops, axis=0)
+
+
+		#create dataframe
+		for f, freq in enumerate(TFR.freqs[0:2]):
+			for t, time in enumerate(TFR.times[250:252]):  #start from time 0, which is indx 250
+				tidx = t+250
+
+				pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe')) 
+				pdf.loc[:,'Pow'] = TFR.data[:,:,f,tidx].squeeze()
+				pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1
+				pdf.loc[:,'Subject'] = str(subject)
+				pdf.loc[:,'Pe'] = pe
+
+				pdf['Trial'] = pdf['Trial'].astype('category')
+				pdf['Subject'] = pdf['Subject'].astype('category')
+
+				if s ==0: #first subject
+					Data[(freq,time)] = pdf
+				else:
+					Data[(freq,time)] = pd.concat([Data[(freq,time)], pdf])
+		
+	### regression
+	RegStats = dict()
+	for freq in TFR.freqs[0:2]:
+		for time in TFR.times[250:252]:
+
+			md = smf.mixedlm("Pow ~ Pe", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe")
+			RegStats[(chname, freq, time)] = md.fit()
+			print(RegStats[(chname, freq, time)])
+
+	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_mlm.stats'		
+	save_object(RegStats, fn)		
 
 
 
