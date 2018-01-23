@@ -3,7 +3,7 @@ export DISPLAY=""
 
 #Subject=${SGE_TASK}
 
-#qsub -l mem_free=10G -V -M kaihwang -m e -e ~/tmp -o ~/tmp run_indiv.sh
+#qsub -l mem_free=15G -V -M kaihwang -m e -e ~/tmp -o ~/tmp run_indiv.sh
 python /home/despoB/kaihwang/bin/Clock/Clock.py
 
 #echo "$Subject" | python /home/despoB/kaihwang/bin/Clock/Clock.py

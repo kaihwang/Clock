@@ -91,7 +91,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 		fn = datapath + '%s/MEG/%s_clock_run%s_dn_ds_sss_raw.fif' %(subject, subject, r)
 		raw = mne.io.read_raw_fif(fn)		
 		picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
-			
+		
 		for event in Event_types:
 
 			#adjust evevnts:
@@ -345,9 +345,9 @@ if __name__ == "__main__":
 	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	Event_types=['clock']
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	chname = 'MEG1243'
+	chname = 'MEG0713'
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
-	
+	#mne.set_log_level('WARNING')
 
 	Data = dict()
 	for s, subject in enumerate(subjects):
@@ -363,7 +363,7 @@ if __name__ == "__main__":
 		#TFR.data dimension is trial x channel x freq x time
 
 		#baseline correction
-		TFR.apply_baseline((-1,-.5), mode='percent')
+		TFR.apply_baseline((-1,-.2), mode='zscore')
 
 		#get model parameters
 		fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
@@ -377,8 +377,8 @@ if __name__ == "__main__":
 
 
 		#create dataframe
-		for f, freq in enumerate(TFR.freqs[0:2]):
-			for t, time in enumerate(TFR.times[250:252]):  #start from time 0, which is indx 250
+		for f, freq in enumerate(TFR.freqs):
+			for t, time in enumerate(TFR.times[250:]):  #start from time 0, which is indx 250
 				tidx = t+250
 
 				pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe')) 
@@ -394,15 +394,27 @@ if __name__ == "__main__":
 					Data[(freq,time)] = pdf
 				else:
 					Data[(freq,time)] = pd.concat([Data[(freq,time)], pdf])
-		
-	### regression
-	RegStats = dict()
-	for freq in TFR.freqs[0:2]:
-		for time in TFR.times[250:252]:
+	
+	#fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_tfr'
+	#save_object(Data, fn)		
 
-			md = smf.mixedlm("Pow ~ Pe", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe")
+
+	### plot to look at distribution
+	#%matplotlib qt
+	#g=sns.jointplot('Pow','Pe',data=D])   
+
+	## regression
+	RegStats = dict()
+	for freq in TFR.freqs:
+		for time in TFR.times[250:]:
+			Data[(freq,time)] = Data[(freq,time)].dropna()
+			
+			#for some reason getting inf, get rid of outliers, and look into this later
+			Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<20] 
+			
+			md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial")
 			RegStats[(chname, freq, time)] = md.fit()
-			print(RegStats[(chname, freq, time)])
+			#print(RegStats[(chname, freq, time)].summary())
 
 	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_mlm.stats'		
 	save_object(RegStats, fn)		
