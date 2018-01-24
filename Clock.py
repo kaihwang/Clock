@@ -88,9 +88,13 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 
 	for r in np.arange(1,9):
 		
-		fn = datapath + '%s/MEG/%s_clock_run%s_dn_ds_sss_raw.fif' %(subject, subject, r)
-		raw = mne.io.read_raw_fif(fn)		
-		picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
+		try:
+			fn = datapath + '%s/MEG/%s_clock_run%s_dn_ds_sss_raw.fif' %(subject, subject, r)
+			raw = mne.io.read_raw_fif(fn)		
+			picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
+		except:
+			break
+
 		
 		for event in Event_types:
 
@@ -98,30 +102,54 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 			# RT can be calculated by 300ms prior to feedback onset
 			# ITI is 850 ms after feedback
 			if event == 'ITI':
-				fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
-				triggers = mne.read_events(glob.glob(fn)[0])
-				triggers[1:,0] = triggers[1:,0] +213 #shift 850ms
-				triggers = np.delete(triggers, -1, 0)  # delete the last row becuase for some runs final trial doesn't have a long enough ITI. UGH.
-				baseline = None
+				try:
+					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
+					triggers = mne.read_events(glob.glob(fn)[0])
+					triggers[1:,0] = triggers[1:,0] +213 #shift 850ms
+					triggers = np.delete(triggers, -1, 0)  # delete the last row becuase for some runs final trial doesn't have a long enough ITI. UGH.
+					baseline = None
+				except:
+					triggers = None
 
 			elif event == 'RT':
-				fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
-				triggers = mne.read_events(glob.glob(fn)[0])
-				triggers[1:,0] = triggers[1:,0] - 75 #shift 300ms
-				baseline = (None, 0.0)
+				try:
+					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
+					triggers = mne.read_events(glob.glob(fn)[0])
+					triggers[1:,0] = triggers[1:,0] - 75 #shift 300ms
+					baseline = (None, 0.0)
+				except:
+					triggers = None
 
 			else:
-				fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, event)
-				triggers = mne.read_events(glob.glob(fn)[0])
-				baseline = (None, 0.0)
+				try:	
+					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, event)
+					triggers = mne.read_events(glob.glob(fn)[0])
+					baseline = (None, 0.0)
+				except:
+					triggers = None
 
 			if r == 1: #create epoch with first run	
-				epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-					tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')
+				if triggers is not None:
+
+					try:
+						epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
+							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')
+					except:
+						pass
+				else:
+					pass
+			
 			else: #concat epochs
-				epochs[event] = mne.concatenate_epochs((epochs[event], 
-					mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-						tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')))	
+				if triggers is not None:
+
+					try:
+						epochs[event] = mne.concatenate_epochs((epochs[event], 
+							mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
+							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')))	
+					except:
+						pass
+				else:
+					pass
 
 	#run autoreject after compile			
 	if autoreject:
@@ -138,8 +166,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 
 
 def get_dropped_trials_list(epoch):
-	'''mne read epoch will automatically drop trials that are too short without warning, need to retrieve those tiral numbers...'''
-	'''not using array because boolean is strange'''
+	'''mne_read_epoch will automatically drop trials that are too short without warning, so need to retrieve those tiral indx...'''
 
 	drop_log = epoch['clock'].drop_log
 	trial_list = []
@@ -154,7 +181,7 @@ def get_dropped_trials_list(epoch):
 
 	drop_list = []	
 	for n in range(0,len(drop_log)):	
-		if drop_log[n]!=[]:  #dropped for whatever reason
+		if drop_log[n]!=[]:  #get list of trials dropped for whatever reason
 			 drop_list.append(n)
 	
 	drop_list = np.array(drop_list)		 
@@ -175,8 +202,8 @@ def	epoch_to_evoke(epochs, Event_types, plot = False):
 
 
 def epoch_to_TFR(epochs, event, average = True):
-	''' use morlet wavelet to cal trail by trial power
-	for now can only return and save average across trials because of memory issues...
+	''' use morlet wavelet to compute trail by trial power
+	for now can only return and save average across trials because of memory restriction...
 	'''
 	freqs = np.logspace(*np.log10([2, 50]), num=20)
 	n_cycles = freqs / 2.
@@ -303,45 +330,9 @@ def save_object(obj, filename):
 		pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 	#M = pickle.load(open(f, "rb"))	
 
-if __name__ == "__main__":	
-	
-	#### run indiv subject pipeline
-	# subject = raw_input()
-	# indiv_subject_raw_to_tfr(subject)
 
-	#### test autorejct bad trials
-	# datapath = '/home/despoB/kaihwang/Clock/'
-	# subject = 10637
-	# event='clock'
-	# fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
-	# epochs = mne.read_epochs(fn)
+def TFR_regression():
 
-	# from autoreject import LocalAutoRejectCV
-	# ar = LocalAutoRejectCV()
-	# epochs_clean = ar.fit_transform(epochs) 
-
-	# from autoreject import get_rejection_threshold
-	# reject = get_rejection_threshold(epochs)
-
-
-	#### group average evoke response
-	#run_group_ave_evoke()
-
-	#### group averaged TFR power
-	# run_group_ave_power()
-
-
-
-	#to access data: power[event].data
-	#to access time: power[event].time
-	#to access fre : power[event].freqs
-	#to accesss ave: power[event].nave
-
-
-
-
-
-	### test TFT regression pipeline
 	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	Event_types=['clock']
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
@@ -386,7 +377,8 @@ if __name__ == "__main__":
 				pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1
 				pdf.loc[:,'Subject'] = str(subject)
 				pdf.loc[:,'Pe'] = pe
-
+				pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
+				
 				pdf['Trial'] = pdf['Trial'].astype('category')
 				pdf['Subject'] = pdf['Subject'].astype('category')
 
@@ -418,6 +410,55 @@ if __name__ == "__main__":
 
 	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_mlm.stats'		
 	save_object(RegStats, fn)		
+
+
+
+if __name__ == "__main__":	
+	
+	#### run indiv subject pipeline
+	# subject = raw_input()
+	# indiv_subject_raw_to_tfr(subject)
+
+	#### test autorejct bad trials
+	# datapath = '/home/despoB/kaihwang/Clock/'
+	# subject = 10637
+	# event='clock'
+	# fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
+	# epochs = mne.read_epochs(fn)
+
+	# from autoreject import LocalAutoRejectCV
+	# ar = LocalAutoRejectCV()
+	# epochs_clean = ar.fit_transform(epochs) 
+
+	# from autoreject import get_rejection_threshold
+	# reject = get_rejection_threshold(epochs)
+
+
+	#### group average evoke response
+	#run_group_ave_evoke()
+
+	#### group averaged TFR power
+	# run_group_ave_power()
+
+
+
+	#to access data: power[event].data
+	#to access time: power[event].time
+	#to access fre : power[event].freqs
+	#to accesss ave: power[event].nave
+
+	subjects = [11318]#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
+	Event_types=['clock']
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	chname = 'MEG0713'
+	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	#mne.set_log_level('WARNING')
+
+	Data = dict()
+	for s, subject in enumerate(subjects):
+		# create epoch with one channel of data
+		e = raw_to_epoch(subject, Event_types, channels_list = pick_ch, autoreject = False)
+
 
 
 
