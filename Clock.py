@@ -93,7 +93,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 			raw = mne.io.read_raw_fif(fn)		
 			picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
 		except:
-			break
+			break # skip all if fif file does not exist
 
 		
 		for event in Event_types:
@@ -135,7 +135,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 						epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
 							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')
 					except:
-						pass
+						pass #if fif file exist but fail for whatev reason
 				else:
 					pass
 			
@@ -168,7 +168,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 def get_dropped_trials_list(epoch):
 	'''mne_read_epoch will automatically drop trials that are too short without warning, so need to retrieve those tiral indx...'''
 
-	drop_log = epoch['clock'].drop_log
+	drop_log = epoch[epoch.keys()[0]].drop_log
 	trial_list = []
 
 	# event lists start with "0 0 0", get rid of those
@@ -201,18 +201,23 @@ def	epoch_to_evoke(epochs, Event_types, plot = False):
 	return evoked		
 
 
-def epoch_to_TFR(epochs, event, average = True):
+def epoch_to_TFR(epochs, event, freqs = None, average = True):
 	''' use morlet wavelet to compute trail by trial power
 	for now can only return and save average across trials because of memory restriction...
 	'''
-	freqs = np.logspace(*np.log10([2, 50]), num=20)
+	
+	if freqs == None: #do full spec if not specified
+		freqs = np.logspace(*np.log10([2, 50]), num=20)
+	
 	n_cycles = freqs / 2.
 	if average == True:
 		n_jobs = 3
 	else:
 		n_jobs = 1
-	power = mne.time_frequency.tfr_morlet(epochs[event], freqs=freqs, n_cycles=n_cycles, return_itc=False, n_jobs=n_jobs, average = average)
-
+	try:	
+		power = mne.time_frequency.tfr_morlet(epochs[event], freqs=freqs, n_cycles=n_cycles, return_itc=False, n_jobs=n_jobs, average = average)
+	except:
+		power = mne.time_frequency.tfr_morlet(epochs[event], freqs=[freqs], n_cycles=n_cycles, return_itc=False, n_jobs=n_jobs, average = average)
 	return power
 
 
@@ -331,30 +336,40 @@ def save_object(obj, filename):
 	#M = pickle.load(open(f, "rb"))	
 
 
-def TFR_regression():
+def TFR_regression(chname, freqs, Event_types):
 
-	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
-	Event_types=['clock']
+	subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#Event_types='clock'
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	chname = 'MEG0713'
+	#chname = 'MEG0713'
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	#mne.set_log_level('WARNING')
 
 	Data = dict()
 	for s, subject in enumerate(subjects):
+		
 		# create epoch with one channel of data
-		e = raw_to_epoch(subject, Event_types, channels_list = pick_ch, autoreject = False)
+		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch, autoreject = False)
+		b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch, autoreject = False) #ITI baseline
+
+
+		if e[Event_types]==None:
+			break # skip subjects that have no fif files (need to check with Will on why?)
 
 		#get list of trials dropped
 		drops = get_dropped_trials_list(e)
 
 		# get trial by trial TFR
-		event = 'clock'
-		TFR = epoch_to_TFR(e, event, average = False)
+		#event = 'clock'
+		TFR = epoch_to_TFR(e, Event_types, freqs, average = False)
+		BaselineTFR = epoch_to_TFR(b, 'ITI', freqs, average = False)
+
 		#TFR.data dimension is trial x channel x freq x time
 
 		#baseline correction
-		TFR.apply_baseline((-1,-.2), mode='zscore')
+		#TFR.apply_baseline((-1,-.2), mode='zscore')
+		baseline_power = np.broadcast_to(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),TFR.data.shape)
+		TFR.data = 100*((TFR.data - baseline_power) / baseline_power) #convert to percent of signal change
 
 		#get model parameters
 		fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
@@ -402,13 +417,16 @@ def TFR_regression():
 			Data[(freq,time)] = Data[(freq,time)].dropna()
 			
 			#for some reason getting inf, get rid of outliers, and look into this later
-			Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<20] 
+			Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
 			
 			md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial")
 			RegStats[(chname, freq, time)] = md.fit()
 			#print(RegStats[(chname, freq, time)].summary())
 
-	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_mlm.stats'		
+			## need to extract parameters 
+			## save into mat
+
+	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 	save_object(RegStats, fn)		
 
 
@@ -440,29 +458,32 @@ if __name__ == "__main__":
 	#### group averaged TFR power
 	# run_group_ave_power()
 
-
-
 	#to access data: power[event].data
 	#to access time: power[event].time
 	#to access fre : power[event].freqs
 	#to accesss ave: power[event].nave
 
-	subjects = [11318]#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
+	##### test if there are issues with fif and eve files
+	subject = 10637#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
 	Event_types=['clock']
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	chname = 'MEG0713'
-	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
-	#mne.set_log_level('WARNING')
+	# chname = 'MEG0713'
+	# pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	# #mne.set_log_level('WARNING')
 
-	Data = dict()
-	for s, subject in enumerate(subjects):
-		# create epoch with one channel of data
-		e = raw_to_epoch(subject, Event_types, channels_list = pick_ch, autoreject = False)
+	# Data = dict()
+	# for s, subject in enumerate(subjects):
+	# 	# create epoch with one channel of data
+	e = raw_to_epoch(subject, Event_types, autoreject = False)
 
+	#### test single trial TFR conversion
 
-
-
-
-
+	# fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
+	# freqs=fullfreqs[0]
+	# chname = 'MEG0713'
+	# Event_types = 'feedback'
+	# TFR_regression(chname, freqs, Event_types)
+	# Event_types = 'clock'
+	# TFR_regression(chname, freqs, Event_types)
 
 
