@@ -181,7 +181,7 @@ def get_dropped_trials_list(epoch):
 
 	drop_list = []	
 	for n in range(0,len(drop_log)):	
-		if drop_log[n]!=[]:  #get list of trials dropped for whatever reason
+		if drop_log[n]!=[]:  #get list of trials dropped for whatever reason, note rejected bad trials will also be here.
 			 drop_list.append(n)
 	
 	drop_list = np.array(drop_list)		 
@@ -335,6 +335,9 @@ def save_object(obj, filename):
 		pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 	#M = pickle.load(open(f, "rb"))	
 
+def read_object(filename):
+	o = pickle.load(open(filename, "rb"))	
+	return o
 
 def TFR_regression(chname, freqs, Event_types):
 
@@ -437,21 +440,6 @@ if __name__ == "__main__":
 	# subject = raw_input()
 	# indiv_subject_raw_to_tfr(subject)
 
-	#### test autorejct bad trials
-	# datapath = '/home/despoB/kaihwang/Clock/'
-	# subject = 10637
-	# event='clock'
-	# fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
-	# epochs = mne.read_epochs(fn)
-
-	# from autoreject import LocalAutoRejectCV
-	# ar = LocalAutoRejectCV()
-	# epochs_clean = ar.fit_transform(epochs) 
-
-	# from autoreject import get_rejection_threshold
-	# reject = get_rejection_threshold(epochs)
-
-
 	#### group average evoke response
 	#run_group_ave_evoke()
 
@@ -463,10 +451,11 @@ if __name__ == "__main__":
 	#to access fre : power[event].freqs
 	#to accesss ave: power[event].nave
 
-	##### test if there are issues with fif and eve files
-	subject = 10637#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
+
+	##### test autoreject
+	subject = 10637 #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
 	Event_types=['clock']
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	#channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	# chname = 'MEG0713'
 	# pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	# #mne.set_log_level('WARNING')
@@ -475,6 +464,23 @@ if __name__ == "__main__":
 	# for s, subject in enumerate(subjects):
 	# 	# create epoch with one channel of data
 	e = raw_to_epoch(subject, Event_types, autoreject = False)
+
+	epochs = e['clock']
+	#reject = get_rejection_threshold(epochs)
+	#fn = '/home/despoB/kaihwang/Clock/Group/' + 'autorejecttest'		
+	picks = mne.pick_types(epochs.info, meg=True, eeg=False, stim=False, eog=False, include=[], exclude=[])
+	from functools import partial 
+	from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
+	thresh_func = partial(compute_thresholds, picks=picks, method='random_search')
+	ar = LocalAutoRejectCV(picks=picks, thresh_func=thresh_func)
+	e2 = ar.fit_transform(epochs)
+
+	fn = '/home/despoB/kaihwang/Clock/Group/' + 'autorejecttest'
+	save_object(e2, fn)
+	fn = '/home/despoB/kaihwang/Clock/Group/' + 'beforearreject'
+	save_object(epochs, fn)
+
+
 
 	#### test single trial TFR conversion
 
