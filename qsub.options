@@ -4,5 +4,5 @@
 -m eas
 -pe threaded 3
 -binding linear:3
--l mem_free=7G
+-l mem_free=12G
 -M kai.hwang@gmail.com

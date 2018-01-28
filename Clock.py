@@ -6,8 +6,9 @@ import matplotlib as matplotlib
 import mne as mne
 import os.path as op
 import glob
-from autoreject import LocalAutoRejectCV
-from autoreject import get_rejection_threshold
+from functools import partial 
+from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
+from mne.utils import check_random_state 
 #from collections import defaultdict
 import sys
 from scipy import io
@@ -432,6 +433,38 @@ def TFR_regression(chname, freqs, Event_types):
 	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 	save_object(RegStats, fn)		
 
+def run_autoreject(subject):
+	'''run autoreject through epochs, save autoreject object, will read bad data segment indices later'''
+
+	#params
+	check_random_state(42)
+	n_interpolates = np.array([1, 4, 8, 16, 24, 32, 40])
+	consensus_percs = np.linspace(0, 1.0, 11)
+
+	Event_types = ['clock', 'feedback', 'ITI', 'RT']
+	e = raw_to_epoch(subject, Event_types, autoreject = False)
+
+	for event in Event_types:
+		epochs = e[event]
+		#fn = '/home/despoB/kaihwang/Clock/Group/' + 'beforearreject'
+		#save_object(epochs, fn)
+
+		#do grad 
+		picks = mne.pick_types(epochs.info, meg='grad', eeg=False, stim=False, eog=False, include=[], exclude=[])
+		thresh_func = partial(compute_thresholds, picks=picks, random_state=42)
+		ar = LocalAutoRejectCV(n_interpolates, consensus_percs, picks=picks, thresh_func=thresh_func)	
+		egrad = ar.fit(epochs)
+		fn = '/home/despoB/kaihwang/Clock/autoreject/' + str(subject) + '_ar_' + event + '_grad'
+		save_object(egrad, fn)
+		
+		#do mag
+		picks = mne.pick_types(epochs.info, meg='mag', eeg=False, stim=False, eog=False, include=[], exclude=[])
+		thresh_func = partial(compute_thresholds, picks=picks, random_state=42)
+		ar = LocalAutoRejectCV(n_interpolates, consensus_percs, picks=picks, thresh_func=thresh_func)
+		emag = ar.fit(epochs)	
+		fn = '/home/despoB/kaihwang/Clock/autoreject/' + str(subject) + '_ar_' + event + '_mag'
+		save_object(emag, fn)
+
 
 
 if __name__ == "__main__":	
@@ -452,38 +485,13 @@ if __name__ == "__main__":
 	#to accesss ave: power[event].nave
 
 
-	##### test autoreject
-	subject = 10637 #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
-	Event_types=['clock']
-	#channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	# chname = 'MEG0713'
-	# pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
-	# #mne.set_log_level('WARNING')
-
-	# Data = dict()
-	# for s, subject in enumerate(subjects):
-	# 	# create epoch with one channel of data
-	e = raw_to_epoch(subject, Event_types, autoreject = False)
-
-	epochs = e['clock']
-	#reject = get_rejection_threshold(epochs)
-	#fn = '/home/despoB/kaihwang/Clock/Group/' + 'autorejecttest'		
-	picks = mne.pick_types(epochs.info, meg=True, eeg=False, stim=False, eog=False, include=[], exclude=[])
-	from functools import partial 
-	from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
-	thresh_func = partial(compute_thresholds, picks=picks, method='random_search')
-	ar = LocalAutoRejectCV(picks=picks, thresh_func=thresh_func)
-	e2 = ar.fit_transform(epochs)
-
-	fn = '/home/despoB/kaihwang/Clock/Group/' + 'autorejecttest'
-	save_object(e2, fn)
-	fn = '/home/despoB/kaihwang/Clock/Group/' + 'beforearreject'
-	save_object(epochs, fn)
-
+	#### run autoreject pipeline to get bad data segment indices
+	subject = raw_input()
+	run_autoreject(subject)
 
 
 	#### test single trial TFR conversion
-
+	#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
 	# fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	# freqs=fullfreqs[0]
 	# chname = 'MEG0713'
