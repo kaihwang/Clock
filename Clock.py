@@ -22,12 +22,11 @@ import pickle
 
 #### scripts to use MNE to analyze Clock MEG data
 
-def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False):
+def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
 	input: subject, Event_types
 	Event_types is a list of strings to indicate the event type you want to extract from raw. possible choices are:
 	Event_types = ['clock', 'feedback', 'ITI', 'RT']
-
 	The return of this function will be a dictionary, where key is the event_type, and the item is the mne epoch object.
 	'''
 	
@@ -151,18 +150,6 @@ def raw_to_epoch(subject, Event_types, channels_list = None, autoreject = False)
 						pass
 				else:
 					pass
-
-	#run autoreject after compile			
-	if autoreject:
-
-		epochs_clean = dict.fromkeys(Event_types)
-		for event in Event_types:
-			ar = LocalAutoRejectCV()
-			epochs_clean[event] = ar.fit_transform(epochs[event])
-			reject = get_rejection_threshold(epochs[event])	
-	
-		return epochs_clean, reject	
-	
 	return epochs	
 
 
@@ -340,7 +327,7 @@ def read_object(filename):
 	o = pickle.load(open(filename, "rb"))	
 	return o
 
-def TFR_regression(chname, freqs, Event_types):
+def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 
 	subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	#Event_types='clock'
@@ -352,86 +339,144 @@ def TFR_regression(chname, freqs, Event_types):
 	Data = dict()
 	for s, subject in enumerate(subjects):
 		
-		# create epoch with one channel of data
-		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch, autoreject = False)
-		b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch, autoreject = False) #ITI baseline
+		# get bad trials and channels
+		try:
+			bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
+		except: #no ar 
+			bad_channels = np.array([], dtype='<U7')
+			bad_trials = np.array([])
 
+		if any(chname == bad_channels):
+			break #skip if bad channel 
+
+		try:
+			baseline_bad_channels, baseline_bad_trials = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
+		except: #no ar 
+			baseline_bad_channels = np.array([], dtype='<U7')
+			baseline_bad_trials = np.array([])
+
+		if any(chname == baseline_bad_channels):
+			break #skip if bad channel 	
+
+		# create epoch with one channel of data
+		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
+		b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch) #ITI baseline
 
 		if e[Event_types]==None:
 			break # skip subjects that have no fif files (need to check with Will on why?)
 
+		#drop bad trials
+		e[Event_types].drop(bad_trials)	
+		b['ITI'].drop(baseline_bad_trials)	
 		#get list of trials dropped
 		drops = get_dropped_trials_list(e)
-
+		
 		# get trial by trial TFR
 		#event = 'clock'
 		TFR = epoch_to_TFR(e, Event_types, freqs, average = False)
 		BaselineTFR = epoch_to_TFR(b, 'ITI', freqs, average = False)
 
-		#TFR.data dimension is trial x channel x freq x time
-
-		#baseline correction
+		## baseline correction
 		#TFR.apply_baseline((-1,-.2), mode='zscore')
 		baseline_power = np.broadcast_to(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),TFR.data.shape)
 		TFR.data = 100*((TFR.data - baseline_power) / baseline_power) #convert to percent of signal change
 
-		#get model parameters
-		fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
-		pe = io.loadmat(fn)
-		fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
-		value = io.loadmat(fn)
+		## extract model parameters and freq poer into dataframe
+		##in the case of testing for PE
+		if (parameters =='Pe') & (Event_types == 'feedback'):
+			#get PE model parameters
+			fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
+			pe = io.loadmat(fn)
+			pe = np.delete(pe['pe'],drops, axis=0)
+			pe = np.max(pe,axis=1) #for prediction error take the max
 		
-		pe = np.delete(pe['pe'],drops, axis=0)
-		pe = np.max(pe,axis=1) #for prediction error take the max
-		value = np.delete(value['value'],drops, axis=0)
+			## create dataframe
+			for f, freq in enumerate(TFR.freqs):
+				for t, time in enumerate(TFR.times[250:]):  #start from time 0, which is indx 250
+					tidx = t+250
 
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe')) 
+					pdf.loc[:,'Pow'] = TFR.data[:,:,f,tidx].squeeze() #TFR.data dimension is trial x channel x freq x time
+					pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1  
+					pdf.loc[:,'Subject'] = str(subject)
+					pdf.loc[:,'Pe'] = pe
+					pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
+					
+					pdf['Trial'] = pdf['Trial'].astype('category')
+					pdf['Subject'] = pdf['Subject'].astype('category')
 
-		#create dataframe
-		for f, freq in enumerate(TFR.freqs):
-			for t, time in enumerate(TFR.times[250:]):  #start from time 0, which is indx 250
-				tidx = t+250
+					if s ==0: #first subject
+						Data[(freq,time)] = pdf
+					else:
+						Data[(freq,time)] = pd.concat([Data[(freq,time)], pdf])
 
-				pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe')) 
-				pdf.loc[:,'Pow'] = TFR.data[:,:,f,tidx].squeeze()
-				pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1
-				pdf.loc[:,'Subject'] = str(subject)
-				pdf.loc[:,'Pe'] = pe
-				pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
-				
-				pdf['Trial'] = pdf['Trial'].astype('category')
-				pdf['Subject'] = pdf['Subject'].astype('category')
+		#in the case of testing for value function		
+		elif (parameters =='Value') & (Event_types == 'clock'):
+			# get value model parameters
+			fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
+			value = io.loadmat(fn)
+			value = np.delete(value['value'],drops, axis=0)				
 
-				if s ==0: #first subject
-					Data[(freq,time)] = pdf
-				else:
-					Data[(freq,time)] = pd.concat([Data[(freq,time)], pdf])
+			for f, freq in enumerate(TFR.freqs):
+				for t in range(np.shape(TFR.data)[0]):
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value')) 
+					pdf.loc[:,'Pow'] = TFR.data[t,:,f,251:].squeeze()
+					pdf.loc[:,'Trial'] = t+1
+					pdf.loc[:,'Subject'] = str(subject)
+					pdf.loc[:,'Time'] = np.arange(TFR.data[t,:,f,251:].shape[1])+1
+					pdf.loc[:,'Value'] = value[t,].repeat(25)  # upsample value function, which was 100ms resolution (to 4ms)
+					pdf['Value'].subtract(pdf['Value'].mean())
+					pdf['Trial'] = pdf['Trial'].astype('category')
+					pdf['Subject'] = pdf['Subject'].astype('category')
+
+					if s ==0: #first subject
+						Data[(freq)] = pdf
+					else:
+						Data[(freq)] = pd.concat([Data[(freq)], pdf])	
+		else:
+			print('something wrong with parameter or event input, can only do clock if testing value funciton, feedback if testing Pe')
+			return				
+						
+	## Regression
+	if do_reg:
+
+		if parameters =='Pe':
+			RegStats = dict()
+			for freq in TFR.freqs:
+				for time in TFR.times[250:]:
+					Data[(freq,time)] = Data[(freq,time)].dropna()
+					
+					#for some reason getting inf, get rid of outliers, and look into this later
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
+					
+					md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial")
+					# this is equivalent to in R's lme4	
+
+					RegStats[(chname, freq, time)] = md.fit()
+					#print(RegStats[(chname, freq, time)].summary())
+
+					## need to extract parameters 
+					## save into mat
+
+			fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+			save_object(RegStats, fn)
+		
+		if parameters =='Value':
+			pass
 	
+	else:	
+		return Data		
+	
+	#left over
 	#fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_tfr'
 	#save_object(Data, fn)		
-
 
 	### plot to look at distribution
 	#%matplotlib qt
 	#g=sns.jointplot('Pow','Pe',data=D])   
 
-	## regression
-	RegStats = dict()
-	for freq in TFR.freqs:
-		for time in TFR.times[250:]:
-			Data[(freq,time)] = Data[(freq,time)].dropna()
-			
-			#for some reason getting inf, get rid of outliers, and look into this later
-			Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
-			
-			md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial")
-			RegStats[(chname, freq, time)] = md.fit()
-			#print(RegStats[(chname, freq, time)].summary())
+		
 
-			## need to extract parameters 
-			## save into mat
-
-	fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
-	save_object(RegStats, fn)		
 
 def run_autoreject(subject):
 	'''run autoreject through epochs, save autoreject object, will read bad data segment indices later'''
@@ -466,6 +511,28 @@ def run_autoreject(subject):
 		save_object(emag, fn)
 
 
+def get_bad_channels_and_trials(subject, event, threshold):
+	''' get list of bad channels and trails from autoreject procedure, need to give threshold (percentage of bad segments to be rejected)'''
+
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	fn = '/home/despoB/kaihwang/Clock/autoreject' + '/%s_ar_%s_grad' %(subject, event)
+	grad = read_object(fn)
+	fn = '/home/despoB/kaihwang/Clock/autoreject' + '/%s_ar_%s_mag' %(subject, event)
+	mag = read_object(fn)
+
+	#num_trial = grad.bad_segments.shape[0]
+	b=mag.bad_segments.mean(axis=0)>threshold
+	a=grad.bad_segments.mean(axis=0)>threshold
+	bad_channels = channels_list[a[0:306]+b[0:306]]
+
+	b=mag.bad_segments.mean(axis=1)>threshold
+	a=grad.bad_segments.mean(axis=1)>threshold
+	bad_trials = np.where(a+b)[0]
+
+	return bad_channels, bad_trials
+
+
+
 
 if __name__ == "__main__":	
 	
@@ -479,25 +546,30 @@ if __name__ == "__main__":
 	#### group averaged TFR power
 	# run_group_ave_power()
 
-	#to access data: power[event].data
-	#to access time: power[event].time
-	#to access fre : power[event].freqs
-	#to accesss ave: power[event].nave
+		#to access data: power[event].data
+		#to access time: power[event].time
+		#to access fre : power[event].freqs
+		#to accesss ave: power[event].nave
 
 
 	#### run autoreject pipeline to get bad data segment indices
-	subject = raw_input()
-	run_autoreject(subject)
+	#subject = raw_input()
+	#run_autoreject(subject)
 
 
 	#### test single trial TFR conversion
 	#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
-	# fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	# freqs=fullfreqs[0]
-	# chname = 'MEG0713'
-	# Event_types = 'feedback'
-	# TFR_regression(chname, freqs, Event_types)
-	# Event_types = 'clock'
-	# TFR_regression(chname, freqs, Event_types)
+	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
+	freqs=fullfreqs[10]
+	chname = 'MEG0713'
+	Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = False, parameters='Pe')
+	clockdata = TFR_regression(chname, freqs, 'clock', do_reg = False, parameters='Value')
+
+
+
+
+
+
+
 
 
