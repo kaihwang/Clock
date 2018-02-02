@@ -15,6 +15,7 @@ from scipy import io
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import pickle
+from scipy import signal
 
 #plt.ion()
 #matplotlib.use('Qt4Agg')
@@ -329,7 +330,8 @@ def read_object(filename):
 
 def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 
-	subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
 	#Event_types='clock'
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	#chname = 'MEG0713'
@@ -420,11 +422,11 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			for f, freq in enumerate(TFR.freqs):
 				for t in range(np.shape(TFR.data)[0]):
 					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value')) 
-					pdf.loc[:,'Pow'] = TFR.data[t,:,f,251:].squeeze()
+					pdf.loc[:,'Pow'] = signal.decimate(TFR.data[t,:,f,251:].squeeze(),25) #TFR.data[t,:,f,251:].squeeze()
 					pdf.loc[:,'Trial'] = t+1
 					pdf.loc[:,'Subject'] = str(subject)
-					pdf.loc[:,'Time'] = np.arange(TFR.data[t,:,f,251:].shape[1])+1
-					pdf.loc[:,'Value'] = value[t,].repeat(25)  # upsample value function, which was 100ms resolution (to 4ms)
+					pdf.loc[:,'Value'] = value[t,]  #.repeat(25)  # should we upsample value function, which was 100ms resolution to 4ms, or shouuld we downsample TFR?
+					pdf.loc[:,'Time'] = np.arange(value[t,].shape[0])+1
 					pdf['Value'].subtract(pdf['Value'].mean())
 					pdf['Trial'] = pdf['Trial'].astype('category')
 					pdf['Subject'] = pdf['Subject'].astype('category')
@@ -439,9 +441,9 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 						
 	## Regression
 	if do_reg:
-
 		if parameters =='Pe':
 			RegStats = dict()
+			
 			for freq in TFR.freqs:
 				for time in TFR.times[250:]:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
@@ -449,21 +451,29 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					#for some reason getting inf, get rid of outliers, and look into this later
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
 					
-					md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial")
-					# this is equivalent to in R's lme4	
+					md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial").fit()
+					# this is equivalent to in R's lme4	Pow ~ 1 + Pe + Trial + (1+Pe+Trial | Subject)
 
-					RegStats[(chname, freq, time)] = md.fit()
-					#print(RegStats[(chname, freq, time)].summary())
-
-					## need to extract parameters 
-					## save into mat
+					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
+					RegStats[(chname, freq, time, 'zvalue')] = md.tvalues.copy()
+					RegStats[(chname, freq, time, 'llf')] = md.llf
 
 			fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 			save_object(RegStats, fn)
 		
 		if parameters =='Value':
-			pass
-	
+			RegStats = dict()
+
+			for freq in TFR.freqs:
+				Data[(freq)] = Data[(freq)].dropna()
+				#Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<200] 
+				md = smf.mixedlm("Pow ~ Value + Trial ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value+Trial").fit()
+
+				RegStats[(chname, freq, 'parameters')] = md.params.copy()
+				RegStats[(chname, freq, 'zvalue')] = md.tvalues.copy()
+				RegStats[(chname, freq, 'llf')] = md.llf
+				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+				save_object(RegStats, fn)
 	else:	
 		return Data		
 	
@@ -562,8 +572,11 @@ if __name__ == "__main__":
 	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	freqs=fullfreqs[10]
 	chname = 'MEG0713'
-	Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = False, parameters='Pe')
-	clockdata = TFR_regression(chname, freqs, 'clock', do_reg = False, parameters='Value')
+	TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
+	TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
+
+	#Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
+	#clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
 
 
 
