@@ -177,6 +177,51 @@ def get_dropped_trials_list(epoch):
 	return drop_list	 
 
 
+def get_epoch_trial_types(epoch):
+	''' '''
+	trig_codes = epoch[epoch.keys()[0]].events[:,2]
+	event = epoch.keys()[0]
+
+	Face_codes = {
+	'clock' : { 
+	'fear.face'   : np.array([47, 56]),
+	'happy.face'  : np.array([83, 92]),
+	'scram.face' : np.array([101, 110, 119, 128])
+	},
+
+	'feedback' : { 
+	'fear.face'   : np.array([154, 163]),
+	'happy.face'  : np.array([190, 199]),
+	'scram.face' : np.array([208, 217, 226, 235])
+	},
+
+	'RT' : {
+	'fear.face'   : np.array([154, 163]),
+	'happy.face'  : np.array([190, 199]),
+	'scram.face' : np.array([208, 217, 226, 235])
+	}}
+
+	out = ['NaN'] * len(trig_codes)
+	for i, trig in enumerate(trig_codes):
+		if any(trig == Face_codes[epoch.keys()[0]]['fear.face']):
+			out[i] = 'Fear'
+		elif any(trig == Face_codes[epoch.keys()[0]]['happy.face']):	
+			out[i] = 'Happy'
+		elif any(trig == Face_codes[epoch.keys()[0]]['scram.face']):	
+			out[i] = 'Sramble'
+		else
+			pass
+			
+
+	# Epoch_timings = {
+	# 'clock'   : [-1,4],
+	# 'feedback': [-1,.850],
+	# 'ITI'     : [0,1],  #no baseline for ITI
+	# 'RT': [-1,1.15],
+	# }
+	return out
+
+
 def	epoch_to_evoke(epochs, Event_types, plot = False):
 	#Event_types =['clock', 'feedback', 'ITI', 'RT']
 	evoked = {}
@@ -328,19 +373,27 @@ def read_object(filename):
 	o = pickle.load(open(filename, "rb"))	
 	return o
 
+
 def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 
-	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
-	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
 	#Event_types='clock'
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	#chname = 'MEG0713'
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	#mne.set_log_level('WARNING')
+	demographic = pd.read_table('/home/despoB/kaihwang/bin/Clock/subinfo_db')
 
 	Data = dict()
 	for s, subject in enumerate(subjects):
 		
+		#get subject's age
+		try: 
+			age = demographic[demographic['lunaid']==subject]['age'].values[0]
+		except:
+			age = np.nan # no age info...??? 
+
 		# get bad trials and channels
 		try:
 			bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
@@ -397,7 +450,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 				for t, time in enumerate(TFR.times[250:]):  #start from time 0, which is indx 250
 					tidx = t+250
 
-					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe')) 
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe', 'Age')) 
 					pdf.loc[:,'Pow'] = TFR.data[:,:,f,tidx].squeeze() #TFR.data dimension is trial x channel x freq x time
 					pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1  
 					pdf.loc[:,'Subject'] = str(subject)
@@ -406,6 +459,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					
 					pdf['Trial'] = pdf['Trial'].astype('category')
 					pdf['Subject'] = pdf['Subject'].astype('category')
+					pdf['Age'] = age
 
 					if s ==0: #first subject
 						Data[(freq,time)] = pdf
@@ -421,7 +475,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 
 			for f, freq in enumerate(TFR.freqs):
 				for t in range(np.shape(TFR.data)[0]):
-					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value')) 
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value', 'Age')) 
 					pdf.loc[:,'Pow'] = signal.decimate(TFR.data[t,:,f,251:].squeeze(),25) #TFR.data[t,:,f,251:].squeeze()
 					pdf.loc[:,'Trial'] = t+1
 					pdf.loc[:,'Subject'] = str(subject)
@@ -430,6 +484,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					pdf['Value'].subtract(pdf['Value'].mean())
 					pdf['Trial'] = pdf['Trial'].astype('category')
 					pdf['Subject'] = pdf['Subject'].astype('category')
+					pdf['Age'] = age
 
 					if s ==0: #first subject
 						Data[(freq)] = pdf
@@ -451,7 +506,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					#for some reason getting inf, get rid of outliers, and look into this later
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
 					
-					md = smf.mixedlm("Pow ~ Pe + Trial", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe+Trial").fit()
+					md = smf.mixedlm("Pow ~ Pe + Trial + Age + Age*Pe", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe + Trial ").fit()
 					# this is equivalent to in R's lme4	Pow ~ 1 + Pe + Trial + (1+Pe+Trial | Subject)
 
 					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
@@ -467,13 +522,16 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			for freq in TFR.freqs:
 				Data[(freq)] = Data[(freq)].dropna()
 				#Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<200] 
-				md = smf.mixedlm("Pow ~ Value + Trial ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value+Trial").fit()
+				md = smf.mixedlm("Pow ~ Value + Trial + Age + Age*Value ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value + Trial ").fit()
 
 				RegStats[(chname, freq, 'parameters')] = md.params.copy()
 				RegStats[(chname, freq, 'zvalue')] = md.tvalues.copy()
 				RegStats[(chname, freq, 'llf')] = md.llf
 				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
+		
+		return RegStats
+	
 	else:	
 		return Data		
 	
@@ -567,13 +625,16 @@ if __name__ == "__main__":
 	#run_autoreject(subject)
 
 
+	#### need to get bad trial statistics
+
+
 	#### test single trial TFR conversion
 	#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
 	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	freqs=fullfreqs[10]
 	chname = 'MEG0713'
-	TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
-	TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
+	Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
+	clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
 
 	#Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
 	#clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')

@@ -2,7 +2,7 @@
 -e /home/despoB/kaihwang/tmp
 -j yes
 -m eas
--pe threaded 3
--binding linear:3
--l mem_free=12G
+-pe threaded 1
+-binding linear:1
+-l mem_free=10.5G
 -M kai.hwang@gmail.com
