@@ -374,7 +374,57 @@ def read_object(filename):
 	return o
 
 
+def get_epochs_for_TFR_regression(chanme, Event_types):
+	''' get epoch and baseline epoch for TFR_regression
+	return trial epoch, baseline epoch, and list of drop trials
+	the purpose is to speed up TFR_regression loop without need of keep reading in data'''
+
+	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+
+	for s, subject in enumerate(subjects):
+
+		#get bad trial and bad channel info
+		try:
+			bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
+		except: #no ar 
+			bad_channels = np.array([], dtype='<U7')
+			bad_trials = np.array([])
+
+		if any(chname == bad_channels):
+			continue #skip if bad channel 
+
+		try:
+			baseline_bad_channels, baseline_bad_trials = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
+		except: #no ar 
+			baseline_bad_channels = np.array([], dtype='<U7')
+			baseline_bad_trials = np.array([])
+
+		if any(chname == baseline_bad_channels):
+			continue #skip if bad channel 	
+
+		# create epoch with one channel of data
+		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
+		b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch) #ITI baseline
+
+		if e[Event_types]==None:
+			continue
+
+		#drop bad trials
+		e[Event_types].drop(bad_trials)	
+		b['ITI'].drop(baseline_bad_trials)	
+		#get list of trials dropped
+		drops = get_dropped_trials_list(e)
+
+	return e, b, drops		
+
+
+
+
 def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
+	''' compile TFR dataframe and model params for regression'''
 
 	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
