@@ -208,8 +208,8 @@ def get_epoch_trial_types(epoch):
 		elif any(trig == Face_codes[epoch.keys()[0]]['happy.face']):	
 			out[i] = 'Happy'
 		elif any(trig == Face_codes[epoch.keys()[0]]['scram.face']):	
-			out[i] = 'Sramble'
-		else
+			out[i] = 'ASramble'
+		else:
 			pass
 			
 
@@ -426,6 +426,10 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 		#get list of trials dropped
 		drops = get_dropped_trials_list(e)
 		
+		# get list of emo face conditions
+		#faces = np.delete(get_epoch_trial_types(e), drops, axis = 0)
+		faces = get_epoch_trial_types(e)
+
 		# get trial by trial TFR
 		#event = 'clock'
 		TFR = epoch_to_TFR(e, Event_types, freqs, average = False)
@@ -450,7 +454,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 				for t, time in enumerate(TFR.times[250:]):  #start from time 0, which is indx 250
 					tidx = t+250
 
-					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe', 'Age')) 
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Pe', 'Age', 'Faces')) 
 					pdf.loc[:,'Pow'] = TFR.data[:,:,f,tidx].squeeze() #TFR.data dimension is trial x channel x freq x time
 					pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,tidx].shape[0])+1  
 					pdf.loc[:,'Subject'] = str(subject)
@@ -460,6 +464,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					pdf['Trial'] = pdf['Trial'].astype('category')
 					pdf['Subject'] = pdf['Subject'].astype('category')
 					pdf['Age'] = age
+					pdf['Faces'] = faces
 
 					if s ==0: #first subject
 						Data[(freq,time)] = pdf
@@ -474,8 +479,8 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			value = np.delete(value['value'],drops, axis=0)				
 
 			for f, freq in enumerate(TFR.freqs):
-				for t in range(np.shape(TFR.data)[0]):
-					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value', 'Age')) 
+				for t in range(np.shape(TFR.data)[0]): #loop through trials
+					pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value', 'Age', 'Faces')) 
 					pdf.loc[:,'Pow'] = signal.decimate(TFR.data[t,:,f,251:].squeeze(),25) #TFR.data[t,:,f,251:].squeeze()
 					pdf.loc[:,'Trial'] = t+1
 					pdf.loc[:,'Subject'] = str(subject)
@@ -485,6 +490,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					pdf['Trial'] = pdf['Trial'].astype('category')
 					pdf['Subject'] = pdf['Subject'].astype('category')
 					pdf['Age'] = age
+					pdf['Faces'] = faces[t]
 
 					if s ==0: #first subject
 						Data[(freq)] = pdf
@@ -506,7 +512,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 					#for some reason getting inf, get rid of outliers, and look into this later
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
 					
-					md = smf.mixedlm("Pow ~ Pe + Trial + Age + Age*Pe", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe + Trial ").fit()
+					md = smf.mixedlm("Pow ~ Pe + Trial + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe + Trial ").fit()
 					# this is equivalent to in R's lme4	Pow ~ 1 + Pe + Trial + (1+Pe+Trial | Subject)
 
 					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
@@ -522,7 +528,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			for freq in TFR.freqs:
 				Data[(freq)] = Data[(freq)].dropna()
 				#Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<200] 
-				md = smf.mixedlm("Pow ~ Value + Trial + Age + Age*Value ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value + Trial ").fit()
+				md = smf.mixedlm("Pow ~ Value + Trial + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value + Trial ").fit()
 
 				RegStats[(chname, freq, 'parameters')] = md.params.copy()
 				RegStats[(chname, freq, 'zvalue')] = md.tvalues.copy()
@@ -634,7 +640,7 @@ if __name__ == "__main__":
 	freqs=fullfreqs[10]
 	chname = 'MEG0713'
 	Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
-	clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
+	#clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
 
 	#Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
 	#clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
