@@ -369,20 +369,27 @@ def save_object(obj, filename):
 		pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 	#M = pickle.load(open(f, "rb"))	
 
+
 def read_object(filename):
+	''' short hand for reading object because I can never remember pickle syntax'''
 	o = pickle.load(open(filename, "rb"))	
 	return o
 
 
-def get_epochs_for_TFR_regression(chanme, Event_types):
+def get_epochs_for_TFR_regression(chname, Event_types):
 	''' get epoch and baseline epoch for TFR_regression
 	return trial epoch, baseline epoch, and list of drop trials
-	the purpose is to speed up TFR_regression loop without need of keep reading in data'''
+	trying to speed up TFR_regression loop without the need of keep reading in data from disk
+	Will output trial epoch, baseline epoch, and list of bad trilas as dict (where subject ID is key) '''
 
-	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#subjects = [10637, 10638] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+
+	Event_Epoch = {}
+	Baseline_Epoch = {}
+	BadTrial_Lists = {}
 
 	for s, subject in enumerate(subjects):
 
@@ -418,20 +425,31 @@ def get_epochs_for_TFR_regression(chanme, Event_types):
 		#get list of trials dropped
 		drops = get_dropped_trials_list(e)
 
-	return e, b, drops		
+		Event_Epoch[subject] = e
+		Baseline_Epoch[subject] = b
+		BadTrial_Lists[subject] = drops
+
+	return Event_Epoch, Baseline_Epoch, BadTrial_Lists		
 
 
 
 
-def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
-	''' compile TFR dataframe and model params for regression'''
+def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
+	''' compile TFR dataframe and model params for regression.
+	Need output from get_epochs_for_TFR_regression() as input.
+	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
+	Will do one channel a time (chname), and read model parameters from Michael's matlab output
+	'''
 
-	#subjects = [10637, 10638, 10662, 10711] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
-	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	#subjects = [11345, 11346, 11347] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	
+	subjects = Event_Epoch.keys()
 	#Event_types='clock'
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	#channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	#chname = 'MEG0713'
-	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	
 	#mne.set_log_level('WARNING')
 	demographic = pd.read_table('/home/despoB/kaihwang/bin/Clock/subinfo_db')
 
@@ -444,7 +462,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 		except:
 			age = np.nan # no age info...??? 
 
-		# get bad trials and channels
+		## check if skip because of bad channels
 		try:
 			bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
 		except: #no ar 
@@ -464,18 +482,22 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			continue #skip if bad channel 	
 
 		# create epoch with one channel of data
-		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
-		b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch) #ITI baseline
+		#e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
+		#b = raw_to_epoch(subject, ['ITI'], channels_list = pick_ch) #ITI baseline
 
-		if e[Event_types]==None:
-			continue # skip subjects that have no fif files (need to check with Will on why?)
+		#if e[Event_types]==None:
+		#	continue # skip subjects that have no fif files (need to check with Will on why?)
 
 		#drop bad trials
-		e[Event_types].drop(bad_trials)	
-		b['ITI'].drop(baseline_bad_trials)	
+		#e[Event_types].drop(bad_trials)	
+		#b['ITI'].drop(baseline_bad_trials)	
 		#get list of trials dropped
-		drops = get_dropped_trials_list(e)
+		#drops = get_dropped_trials_list(e)
 		
+		e = Event_Epoch[subject]
+		b = Baseline_Epoch[subject]
+		drops = get_dropped_trials_list(e)
+
 		# get list of emo face conditions
 		#faces = np.delete(get_epoch_trial_types(e), drops, axis = 0)
 		faces = get_epoch_trial_types(e)
@@ -489,6 +511,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 		#TFR.apply_baseline((-1,-.2), mode='zscore')
 		baseline_power = np.broadcast_to(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),TFR.data.shape)
 		TFR.data = 100*((TFR.data - baseline_power) / baseline_power) #convert to percent of signal change
+		times = TFR.times
 
 		## extract model parameters and freq poer into dataframe
 		##in the case of testing for PE
@@ -523,7 +546,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 
 
 		## Response lock analysis				
-		if (parameters =='Value') & (Event_types == 'RT'):
+		elif (parameters =='Value') & (Event_types == 'RT'):
 			#get PE model parameters
 			fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
 			value = io.loadmat(fn)
@@ -582,13 +605,14 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 			print('something wrong with parameter or event input, can only do clock if testing value funciton, feedback if testing Pe')
 			return				
 						
+
 	## Regression
 	if do_reg:
 		if (parameters =='Pe') & (Event_types == 'feedback'):
 			RegStats = dict()
 			
-			for freq in TFR.freqs:
-				for time in TFR.times[250:]:
+			for freq in [freqs]:
+				for time in times[250:]:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
 					
 					#for some reason getting inf, get rid of outliers, and look into this later
@@ -607,7 +631,7 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 		if (parameters =='Value') & (Event_types == 'clock'):
 			RegStats = dict()
 
-			for freq in TFR.freqs:
+			for freq in [freqs]:
 				Data[(freq)] = Data[(freq)].dropna()
 				Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<200] 
 				md = smf.mixedlm("Pow ~ Value + Trial + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value + Trial ").fit()
@@ -623,12 +647,12 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 		if (parameters =='Value') & (Event_types == 'RT'):
 			RegStats = dict()
 
-			for freq in TFR.freqs:
-				for time in TFR.times:
+			for freq in [freqs]:
+				for time in times:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200]
 					
-					md = smf.mixedlm("Pow ~ Value + Trial + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Value + Trial ").fit()
+					md = smf.mixedlm("Pow ~ Value + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Value").fit()
 
 					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
 					RegStats[(chname, freq, time, 'zvalue')] = md.tvalues.copy()
@@ -651,7 +675,6 @@ def TFR_regression(chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
 	#g=sns.jointplot('Pow','Pe',data=D])   
 
 		
-
 
 def run_autoreject(subject):
 	'''run autoreject through epochs, save autoreject object, will read bad data segment indices later'''
@@ -738,11 +761,20 @@ if __name__ == "__main__":
 	#### test single trial TFR conversion
 	#np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjlist', dtype=int)	 #[10637, 10638, 10662, 10711]
 	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	freqs=fullfreqs[10]
+	
+	#freqs=fullfreqs[10]
+	#chname = raw_input()#'MEG0713'
 	chname = 'MEG0713'
-	Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
-	clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
-	RTdata = TFR_regression(chname, freqs, 'RT', do_reg = True, parameters='Value')
+
+	fb_Epoch, Baseline_Epoch, _ = get_epochs_for_TFR_regression(chname, 'feedback')
+	ck_Epoch, _, _ = get_epochs_for_TFR_regression(chname, 'clock')
+	rt_Epoch, _, _= get_epochs_for_TFR_regression(chname, 'RT')
+
+	for hz in fullfreqs:
+		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+		clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
+		RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
+	
 	#Feedbackdata = TFR_regression(chname, freqs, 'feedback', do_reg = True, parameters='Pe')
 	#clockdata = TFR_regression(chname, freqs, 'clock', do_reg = True, parameters='Value')
 

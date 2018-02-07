@@ -8,7 +8,7 @@ SCRIPTS='/home/despoB/kaihwang/bin/Clock'
 
 submit \
 -s ${SCRIPTS}/run_indiv.sh \
--f ${SCRIPTS}/subjects \
+-f ${SCRIPTS}/channels \
 -o ${SCRIPTS}/qsub.options
 
 

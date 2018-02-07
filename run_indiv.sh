@@ -4,7 +4,10 @@ export DISPLAY=""
 ### for testing TFR
 #qsub -l mem_free=10G -V -M kaihwang -m e -e ~/tmp -o ~/tmp run_indiv.sh
 # when doing TFR reg, use 1.5G
-python /home/despoB/kaihwang/bin/Clock/Clock.py
+#python /home/despoB/kaihwang/bin/Clock/Clock.py
+#Subject=${SGE_TASK} 
+Subject='MEG0713'
+echo "$Subject" | python /home/despoB/kaihwang/bin/Clock/Clock.py
 
 ### for autoreject and epoching
 #Subject=${SGE_TASK}
