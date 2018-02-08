@@ -2,7 +2,7 @@
 export DISPLAY=""
 
 ### for testing TFR
-#qsub -l mem_free=10G -V -M kaihwang -m e -e ~/tmp -o ~/tmp run_indiv.sh
+#qsub -l mem_free=20G -V -M kaihwang -m e -e ~/tmp -o ~/tmp run_indiv.sh
 # when doing TFR reg, use 1.5G
 #python /home/despoB/kaihwang/bin/Clock/Clock.py
 #Subject=${SGE_TASK} 
