@@ -7,7 +7,9 @@ export DISPLAY=""
 #python /home/despoB/kaihwang/bin/Clock/Clock.py
 #Subject=${SGE_TASK} 
 Subject='MEG0713'
-echo "$Subject" | python /home/despoB/kaihwang/bin/Clock/Clock.py
+#freq=2.00
+#freq=${SGE_TASK} 
+echo "$Subject ${SGE_TASK} " | python /home/despoB/kaihwang/bin/Clock/Clock.py
 
 ### for autoreject and epoching
 #Subject=${SGE_TASK}

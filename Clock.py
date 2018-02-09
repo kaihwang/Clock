@@ -613,10 +613,11 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			for freq in [freqs]:
 				for time in times[250:]:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
-					
+
 					#for some reason getting inf, get rid of outliers, and look into this later
-					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200] 
-					
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300] 
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
+
 					md = smf.mixedlm("Pow ~ Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit()
 					# this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*pe + Faces*Age*Pe + (1+Pe | Subject)
 
@@ -634,7 +635,8 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 
 			for freq in [freqs]:
 				Data[(freq)] = Data[(freq)].dropna()
-				Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<200] 
+				Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<300] 
+				Data[(freq)]=Data[(freq)][Data[(freq)]['Value']!=0]
 				
 				#vcf = {"Trial": "0+C(Trial)"} #fit nested random effect for trial, but takes FOREVER to run....
 				#,vc_formula = vcf 
@@ -643,8 +645,8 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				RegStats[(chname, freq, 'parameters')] = md.params.copy()
 				RegStats[(chname, freq, 'zvalue')] = md.tvalues.copy()
 				RegStats[(chname, freq, 'llf')] = md.llf.copy()
-				RegStats[(chname, freq, time, 'pvalues')] = md.pvalues.copy()
-				RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
+				RegStats[(chname, freq, 'pvalues')] = md.pvalues.copy()
+				RegStats[(chname, freq, 'conf_int')] = md.conf_int().copy()
 
 				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
@@ -656,8 +658,9 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			for freq in [freqs]:
 				for time in times:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
-					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<200]
-					
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300]
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Value']!=0]
+
 					md = smf.mixedlm("Pow ~ Value + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Value").fit()
 
 					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
@@ -738,16 +741,16 @@ def get_bad_channels_and_trials(subject, event, threshold):
 	return bad_channels, bad_trials
 
 
-def run_TFR_regression(chname, fullfreqs):
+def run_TFR_regression(chname, hz):
 	''' wrap for TFR then regression, channel by channel, freq by freq'''
-	fb_Epoch, Baseline_Epoch, _ = get_epochs_for_TFR_regression(chname, 'feedback')
-	ck_Epoch, _, _ = get_epochs_for_TFR_regression(chname, 'clock')
-	rt_Epoch, _, _= get_epochs_for_TFR_regression(chname, 'RT')
+	#fb_Epoch, Baseline_Epoch, _ = get_epochs_for_TFR_regression(chname, 'feedback')
+	#ck_Epoch, _, _ = get_epochs_for_TFR_regression(chname, 'clock')
+	rt_Epoch, Baseline_Epoch, _= get_epochs_for_TFR_regression(chname, 'RT')
 	
-	for hz in fullfreqs:
-		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
-		clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
-		RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
+	#for hz in fullfreqs:
+	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+	#clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
+	RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
 
 
 
@@ -779,10 +782,12 @@ if __name__ == "__main__":
 
 	#### test single trial TFR conversion
 	#chname = raw_input()
-	chname = 'MEG0713'
-	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-
-	run_TFR_regression(chname, fullfreqs)
+	#chname='MEG0713'
+	chname, hz = raw_input().split()
+	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
+	hz = np.float(hz)
+	#hz = 2
+	run_TFR_regression(chname, hz)
 
 
 

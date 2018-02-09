@@ -3,14 +3,19 @@
 #for SGE jobs
 SCRIPTS='/home/despoB/kaihwang/bin/Clock'
 
+cat ${SCRIPTS}/channels
 
-#run_mriqc.sh or run_fmriprep.sh
+for ch in MEG2441; do
 
-submit \
--s ${SCRIPTS}/run_indiv.sh \
--f ${SCRIPTS}/channels \
--o ${SCRIPTS}/qsub.options
+	id=$(echo ${ch} | grep -oE [0-9]{4})
+	
+	sed "s/MEG0713/${ch}/g" < ${SCRIPTS}/run_indiv.sh > ~/tmp/tfreg_${id}.sh
+
+	submit \
+	-s ~/tmp/tfreg_${id}.sh \
+	-f ${SCRIPTS}/fullfreqs \
+	-o ${SCRIPTS}/qsub.options
 
 
-
+done
 
