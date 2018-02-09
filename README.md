@@ -23,3 +23,5 @@ https://martinos.org/mne/stable/generated/mne.concatenate_epochs.html?highlight=
 ### artifact rejection
 http://autoreject.github.io/
 
+### source space group stats example
+http://martinos.org/mne/stable/auto_tutorials/plot_stats_cluster_spatio_temporal_repeated_measures_anova.html
