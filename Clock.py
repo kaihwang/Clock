@@ -628,7 +628,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, 'llf')] = md.llf.copy()
 					RegStats[(chname, freq, time, 'pvalues')] = md.pvalues.copy()
 					RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
-					RegStats[(chname, freq, time, 'aic')] = md.aic.copy()
+					RegStats[(chname, freq, time, 'aic')] = md.aic
 
 				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
@@ -652,7 +652,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				RegStats[(chname, freq, 'llf')] = md.llf.copy()
 				RegStats[(chname, freq, 'pvalues')] = md.pvalues.copy()
 				RegStats[(chname, freq, 'conf_int')] = md.conf_int().copy()
-				RegStats[(chname, freq, 'aic')] = md.aic.copy()
+				RegStats[(chname, freq, 'aic')] = md.aic
 
 				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
@@ -676,7 +676,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, 'llf')] = md.llf.copy()
 					RegStats[(chname, freq, time, 'pvalues')] = md.pvalues.copy()
 					RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
-					RegStats[(chname, freq, time, 'aic')] = md.aic.copy()
+					RegStats[(chname, freq, time, 'aic')] = md.aic
 
 				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
