@@ -14,6 +14,9 @@ https://martinos.org/mne/stable/auto_examples/time_frequency/plot_time_frequency
 https://martinos.org/mne/stable/auto_tutorials/plot_stats_cluster_time_frequency.html
 https://martinos.org/mne/stable/auto_tutorials/plot_sensors_time_frequency.html
 
+### Custom topography example
+https://martinos.org/mne/stable/auto_examples/visualization/plot_topo_customized.html#sphx-glr-auto-examples-visualization-plot-topo-customized-py
+
 ### Will’s timing script
 https://github.com/LabNeuroCogDevel/EmoClock.py/blob/master/timing.py
 
