@@ -753,14 +753,55 @@ def get_bad_channels_and_trials(subject, event, threshold):
 def run_TFR_regression(chname, hz):
 	''' wrap for TFR then regression, channel by channel, freq by freq'''
 	fb_Epoch, Baseline_Epoch, _ = get_epochs_for_TFR_regression(chname, 'feedback')
-	ck_Epoch, _, _ = get_epochs_for_TFR_regression(chname, 'clock')
-	rt_Epoch, _, _= get_epochs_for_TFR_regression(chname, 'RT')
+	#ck_Epoch, _, _ = get_epochs_for_TFR_regression(chname, 'clock')
+	#rt_Epoch, _, _= get_epochs_for_TFR_regression(chname, 'RT')
 	
 	#for hz in fullfreqs:
 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
-	clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
-	RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
+	#clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
+	#RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
 
+
+def compile_group_reg(trial_type = 'feedback'):
+	''' assemble regression results freq by freq, channel by channel...'''
+
+	### load gorup power ave epoch template
+	# trials TFR time locked to clock onset
+	#clock_power = mne.time_frequency.read_tfrs('Data/group_clock_power-tfr.h5')
+	# trials TFR time locked to response onset
+	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
+	# trials TFR time locked to feedback onset
+	
+	if trial_type == 'feedback':
+		template = mne.time_frequency.read_tfrs('Data/group_feedback_power-tfr.h5')[0]
+
+		regdatadir = '/home/despoB/kaihwang/Clock/Group/'
+		freqs = np.loadtxt('/home/despoB/kaihwang/bin/Clock/fullfreqs')
+		channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+
+		pedata = np.zeros(template.data.shape)
+		agedata = np.zeros(template.data.shape)
+		agexpedata = np.zeros(template.data.shape)
+
+		for ch in channels_list:	
+			pick_ch = mne.pick_channels(channels_list.tolist(),[ch]) #has to be list, annoying
+			
+			
+			for ih, hz in enumerate(freqs):
+				try:
+					fn = regdatadir + '%s_%shz_feedback_mlm.stats' %(ch, hz)
+					ds = read_object(fn)
+
+					for it, t in enumerate(template.times[250:]): #no negative
+						pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
+						agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
+						agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
+				except:	
+					continue			
+
+		#template.data=data			
+		
+		return template, pedata, agedata, agexpedata			
 
 
 if __name__ == "__main__":	
@@ -795,15 +836,18 @@ if __name__ == "__main__":
 	#hz = 2
 	#fb_Epoch, Baseline_Epoch, _ = get_epochs_for_TFR_regression(chname, 'feedback')
 	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
-
-	chname, hz = raw_input().split()
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	hz = np.float(hz)
-	run_TFR_regression(chname, hz)
+
+	#chname, hz = raw_input().split()
+	#hz = np.float(hz)
+	#run_TFR_regression(chname, hz)
 
 
+	### test complie results
 
-
+	tmp, pe, age, agexpe = compile_group_reg()
+	agexpe = compile_group_reg('Age:Pe')
+	age = compile_group_reg('Age')
 
 
 
