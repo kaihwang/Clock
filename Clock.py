@@ -20,7 +20,7 @@ from scipy import signal
 #plt.ion()
 #matplotlib.use('Qt4Agg')
 #rm ~/.ICEauthority
-
+#%matplotlib qt
 #### scripts to use MNE to analyze Clock MEG data
 
 def raw_to_epoch(subject, Event_types, channels_list = None):
@@ -771,17 +771,47 @@ def compile_group_reg(trial_type = 'feedback'):
 	# trials TFR time locked to response onset
 	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
 	# trials TFR time locked to feedback onset
-	
+	regdatadir = '/home/despoB/kaihwang/Clock/Group/'
+	freqs = np.loadtxt('/home/despoB/kaihwang/bin/Clock/fullfreqs')
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	metrics = ['zvalue', 'pvalues']
+	parameters = ['zvalue', 'Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
+	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe']
+
 	if trial_type == 'feedback':
 		template = mne.time_frequency.read_tfrs('Data/group_feedback_power-tfr.h5')[0]
 
-		regdatadir = '/home/despoB/kaihwang/Clock/Group/'
-		freqs = np.loadtxt('/home/despoB/kaihwang/bin/Clock/fullfreqs')
-		channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-
-		pedata = np.zeros(template.data.shape)
-		agedata = np.zeros(template.data.shape)
-		agexpedata = np.zeros(template.data.shape)
+		Output = {
+		'zvalue': {
+		'Pe' : np.zeros(template.data.shape), 
+		'Age' : np.zeros(template.data.shape),
+		'Age:Pe' : np.zeros(template.data.shape),
+		'Faces[T.Fear]': np.zeros(template.data.shape),
+		'Faces[T.Happy]': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Age': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Age': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
+		},
+		'pvalues': {
+		'Pe' : np.zeros(template.data.shape), 
+		'Age' : np.zeros(template.data.shape),
+		'Age:Pe' : np.zeros(template.data.shape),
+		'Faces[T.Fear]': np.zeros(template.data.shape),
+		'Faces[T.Happy]': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Age': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Age': np.zeros(template.data.shape),
+		'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
+		'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
+		}
+		}
+		#pedata = np.zeros(template.data.shape)
+		#agedata = np.zeros(template.data.shape)
+		#agexpedata = np.zeros(template.data.shape)
 
 		for ch in channels_list:	
 			pick_ch = mne.pick_channels(channels_list.tolist(),[ch]) #has to be list, annoying
@@ -792,16 +822,21 @@ def compile_group_reg(trial_type = 'feedback'):
 					fn = regdatadir + '%s_%shz_feedback_mlm.stats' %(ch, hz)
 					ds = read_object(fn)
 
-					for it, t in enumerate(template.times[250:]): #no negative
-						pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
-						agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
-						agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
+					for it, t in enumerate(template.times[250:]): #no negative timepoint
+						
+						for metric in metrics:
+							for param in parameters:
+
+								Output[metric][param][pick_ch,ih,it+250] = ds[(str(ch), hz, t, metric)][param]
+								#pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
+								#agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
+								#agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
 				except:	
 					continue			
 
 		#template.data=data			
 		
-		return template, pedata, agedata, agexpedata			
+		return Output, template #template, pedata, agedata, agexpedata			
 
 
 if __name__ == "__main__":	
@@ -845,9 +880,9 @@ if __name__ == "__main__":
 
 	### test complie results
 
-	tmp, pe, age, agexpe = compile_group_reg()
-	agexpe = compile_group_reg('Age:Pe')
-	age = compile_group_reg('Age')
+	feedback_reg, avepower = compile_group_reg('feedback')
+	save_object(feedback_reg, 'feedback_reg')
+	
 
 
 
