@@ -16,6 +16,8 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import pickle
 from scipy import signal
+from statsmodels.sandbox.stats.multicomp import multipletests
+
 
 #plt.ion()
 #matplotlib.use('Qt4Agg')
@@ -775,7 +777,7 @@ def compile_group_reg(trial_type = 'feedback'):
 	freqs = np.loadtxt('/home/despoB/kaihwang/bin/Clock/fullfreqs')
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
-	parameters = ['zvalue', 'Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
+	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
 	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe']
 
 	if trial_type == 'feedback':
@@ -807,8 +809,7 @@ def compile_group_reg(trial_type = 'feedback'):
 		'Faces[T.Fear]:Age': np.zeros(template.data.shape),
 		'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
 		'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
-		}
-		}
+		}}
 		#pedata = np.zeros(template.data.shape)
 		#agedata = np.zeros(template.data.shape)
 		#agexpedata = np.zeros(template.data.shape)
@@ -821,18 +822,19 @@ def compile_group_reg(trial_type = 'feedback'):
 				try:
 					fn = regdatadir + '%s_%shz_feedback_mlm.stats' %(ch, hz)
 					ds = read_object(fn)
-
-					for it, t in enumerate(template.times[250:]): #no negative timepoint
-						
-						for metric in metrics:
-							for param in parameters:
-
-								Output[metric][param][pick_ch,ih,it+250] = ds[(str(ch), hz, t, metric)][param]
-								#pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
-								#agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
-								#agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
 				except:	
-					continue			
+					continue
+
+				for it, t in enumerate(template.times[250:]): #no negative timepoint
+					
+					for metric in metrics:
+						for param in parameters:
+
+							Output[metric][param][pick_ch,ih,it+250] = ds[(str(ch), hz, t, metric)][param]
+							#pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
+							#agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
+							#agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
+							
 
 		#template.data=data			
 		
