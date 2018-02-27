@@ -764,7 +764,7 @@ def run_TFR_regression(chname, hz):
 	#RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
 
 
-def compile_group_reg(trial_type = 'feedback'):
+def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	''' assemble regression results freq by freq, channel by channel...'''
 
 	### load gorup power ave epoch template
@@ -835,10 +835,35 @@ def compile_group_reg(trial_type = 'feedback'):
 							#agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
 							#agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
 							
+		# FRD correction to create significant mask	
+		if fdr_correction:
+			Sig_mask = {
+			'Pe' : np.zeros(template.data.shape)==1, 
+			'Age' : np.zeros(template.data.shape)==1,
+			'Age:Pe' : np.zeros(template.data.shape)==1,
+			'Faces[T.Fear]': np.zeros(template.data.shape)==1,
+			'Faces[T.Happy]': np.zeros(template.data.shape)==1,
+			'Faces[T.Happy]:Pe': np.zeros(template.data.shape)==1,
+			'Faces[T.Fear]:Pe': np.zeros(template.data.shape)==1,
+			'Faces[T.Happy]:Age': np.zeros(template.data.shape)==1,
+			'Faces[T.Fear]:Age': np.zeros(template.data.shape)==1,
+			'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape)==1,
+			'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape)==1
+			}
+			#Sig_mask ={}
+			
+			for param in parameters:
+				ps = Output['pvalues'][param][:,:,250:]
+				#ps.shape
+				Sig_mask[param][:,:,250:] = np.reshape(multipletests(ps.ravel(),alpha=0.05,method='fdr_by')[0], ps.shape)
 
-		#template.data=data			
-		
-		return Output, template #template, pedata, agedata, agexpedata			
+				#Sig_mask[param] = pmask
+				#param : pmask}
+
+
+
+
+		return Output, template, Sig_mask 
 
 
 if __name__ == "__main__":	
@@ -882,8 +907,9 @@ if __name__ == "__main__":
 
 	### test complie results
 
-	feedback_reg, avepower = compile_group_reg('feedback')
+	feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
 	save_object(feedback_reg, 'feedback_reg')
+	save_object(fb_sig_mask, 'feedback_reg_sigmask')
 	
 
 
