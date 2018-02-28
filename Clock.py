@@ -778,38 +778,45 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
 	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
-	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe']
+	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial']
 
 	if trial_type == 'feedback':
-		template = mne.time_frequency.read_tfrs('Data/group_feedback_power-tfr.h5')[0]
+		template = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
 
-		Output = {
-		'zvalue': {
-		'Pe' : np.zeros(template.data.shape), 
-		'Age' : np.zeros(template.data.shape),
-		'Age:Pe' : np.zeros(template.data.shape),
-		'Faces[T.Fear]': np.zeros(template.data.shape),
-		'Faces[T.Happy]': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Age': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Age': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
-		},
-		'pvalues': {
-		'Pe' : np.zeros(template.data.shape), 
-		'Age' : np.zeros(template.data.shape),
-		'Age:Pe' : np.zeros(template.data.shape),
-		'Faces[T.Fear]': np.zeros(template.data.shape),
-		'Faces[T.Happy]': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Age': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Age': np.zeros(template.data.shape),
-		'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
-		'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
-		}}
+		#setup var
+		Output ={}
+		for metric in metrics:
+			Output[metric]={}
+			for param in parameters:
+				Output[metric][param] = np.zeros(template.data.shape)
+				
+		# Output = {
+		# 'zvalue': {
+		# 'Pe' : np.zeros(template.data.shape), 
+		# 'Age' : np.zeros(template.data.shape),
+		# 'Age:Pe' : np.zeros(template.data.shape),
+		# 'Faces[T.Fear]': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Age': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Age': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
+		# },
+		# 'pvalues': {
+		# 'Pe' : np.zeros(template.data.shape), 
+		# 'Age' : np.zeros(template.data.shape),
+		# 'Age:Pe' : np.zeros(template.data.shape),
+		# 'Faces[T.Fear]': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Age': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Age': np.zeros(template.data.shape),
+		# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
+		# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
+		# }}
 		#pedata = np.zeros(template.data.shape)
 		#agedata = np.zeros(template.data.shape)
 		#agexpedata = np.zeros(template.data.shape)
@@ -837,20 +844,24 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 							
 		# FRD correction to create significant mask	
 		if fdr_correction:
-			Sig_mask = {
-			'Pe' : np.zeros(template.data.shape)==1, 
-			'Age' : np.zeros(template.data.shape)==1,
-			'Age:Pe' : np.zeros(template.data.shape)==1,
-			'Faces[T.Fear]': np.zeros(template.data.shape)==1,
-			'Faces[T.Happy]': np.zeros(template.data.shape)==1,
-			'Faces[T.Happy]:Pe': np.zeros(template.data.shape)==1,
-			'Faces[T.Fear]:Pe': np.zeros(template.data.shape)==1,
-			'Faces[T.Happy]:Age': np.zeros(template.data.shape)==1,
-			'Faces[T.Fear]:Age': np.zeros(template.data.shape)==1,
-			'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape)==1,
-			'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape)==1
-			}
-			#Sig_mask ={}
+			Sig_mask = {}
+
+			for param in parameters:
+				Sig_mask[param] = np.zeros(template.data.shape)==1
+			
+			# Sig_mask = {
+			# 'Pe' : np.zeros(template.data.shape)==1, 
+			# 'Age' : np.zeros(template.data.shape)==1,
+			# 'Age:Pe' : np.zeros(template.data.shape)==1,
+			# 'Faces[T.Fear]': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Happy]': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Happy]:Age': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Fear]:Age': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape)==1,
+			# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape)==1
+			# }
 			
 			for param in parameters:
 				ps = Output['pvalues'][param][:,:,250:]
