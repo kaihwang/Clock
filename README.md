@@ -28,3 +28,6 @@ http://autoreject.github.io/
 
 ### source space group stats example
 http://martinos.org/mne/stable/auto_tutorials/plot_stats_cluster_spatio_temporal_repeated_measures_anova.html
+
+### Beamforming source solution example
+https://martinos.org/mne/stable/auto_examples/inverse/plot_lcmv_beamformer_volume.html#sphx-glr-auto-examples-inverse-plot-lcmv-beamformer-volume-py
