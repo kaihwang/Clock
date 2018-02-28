@@ -854,13 +854,11 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 			
 			for param in parameters:
 				ps = Output['pvalues'][param][:,:,250:]
-				#ps.shape
-				Sig_mask[param][:,:,250:] = np.reshape(multipletests(ps.ravel(),alpha=0.05,method='fdr_by')[0], ps.shape)
+				ps[ps==0]=np.inf #missing values 
+				Sig_mask[param][:,:,250:] = np.reshape(multipletests(ps.flatten(),alpha=0.05,method='fdr_by')[0], ps.shape)
 
 				#Sig_mask[param] = pmask
 				#param : pmask}
-
-
 
 
 		return Output, template, Sig_mask 
