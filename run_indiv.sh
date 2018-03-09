@@ -9,7 +9,7 @@ export DISPLAY=""
 Subject='MEG0713'
 #freq=2.00
 #freq=${SGE_TASK} 
-echo "$Subject ${SGE_TASK} " | python /home/despoB/kaihwang/bin/Clock/Clock.py
+echo "$Subject $SGE_TASK" | python /home/despoB/kaihwang/bin/Clock/Clock.py
 
 ### for autoreject and epoching
 #Subject=${SGE_TASK}

@@ -5,7 +5,7 @@ SCRIPTS='/home/despoB/kaihwang/bin/Clock'
 
 cat ${SCRIPTS}/channels
 
-for ch in MEG2441; do
+for ch in $(cat ${SCRIPTS}/channels); do
 
 	id=$(echo ${ch} | grep -oE [0-9]{4})
 	
