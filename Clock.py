@@ -1,3 +1,4 @@
+#### scripts to use MNE to analyze Clock MEG data
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -18,12 +19,6 @@ import pickle
 from scipy import signal
 from statsmodels.sandbox.stats.multicomp import multipletests
 
-
-#plt.ion()
-#matplotlib.use('Qt4Agg')
-#rm ~/.ICEauthority
-#%matplotlib qt
-#### scripts to use MNE to analyze Clock MEG data
 
 def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
@@ -783,7 +778,7 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
 	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
-	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe'] #, 'Trial'
+	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial'] #, 'Trial'
 
 	if trial_type == 'feedback':
 		template = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
@@ -918,19 +913,33 @@ if __name__ == "__main__":
 	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
-	chname, hz = raw_input().split()
-	hz = np.float(hz)
-	run_TFR_regression(chname, hz)
+	#chname, hz = raw_input().split()
+	#hz = np.float(hz)
+	#run_TFR_regression(chname, hz)
 
 
-	### test complie results
+	### complie freq by freq channel by channel results
 
-	#feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
-	#save_object(feedback_reg, 'feedback_reg')
-	#save_object(fb_sig_mask, 'feedback_reg_sigmask')
+	feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
+	save_object(feedback_reg, 'feedback_reg')
+	save_object(fb_sig_mask, 'feedback_reg_sigmask')
 	
+	## Visualize
+	#plt.ion()
+	#matplotlib.use('Qt4Agg')
+	#rm ~/.ICEauthority
+	#%matplotlib qt
+
+	# avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+	# feedback_reg = read_object('feedback_reg')
+	# fb_sig_mask = read_object('feedback_reg_sigmask')
+
+	# avepowerzvalue = avepower.data.copy()
 
 
+	def plotregtfr(param):
+		avepower.data = feedback_reg['zvalue'][param]
+		avepower.plot_topo(mode=None, vmin=-3, vmax=3, show=True, title = param, yscale='auto') 
 
 
 
