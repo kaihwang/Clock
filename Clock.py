@@ -778,7 +778,7 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
 	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
-	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial'] #, 'Trial'
+	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial', 'Intercept'] #, 'Trial'
 
 	if trial_type == 'feedback':
 		template = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
@@ -917,12 +917,21 @@ if __name__ == "__main__":
 	#hz = np.float(hz)
 	#run_TFR_regression(chname, hz)
 
+	#### exaime distribution
+	# chname='MEG2232'
+	# freqs = np.logspace(*np.log10([2, 50]), num=20)#10.88
+	
+	# for hz in freqs:
+	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	# 	Feedbackdata = TFR_regression(fb_Epoch, BaselineTFRline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
+	# 	fn = str(hz) +'_data'
+	# 	save_object(Feedbackdata, fn)
 
 	### complie freq by freq channel by channel results
 
-	feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
-	save_object(feedback_reg, 'feedback_reg')
-	save_object(fb_sig_mask, 'feedback_reg_sigmask')
+	#feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
+	#save_object(feedback_reg, 'feedback_reg')
+	#save_object(fb_sig_mask, 'feedback_reg_sigmask')
 	
 	## Visualize
 	#plt.ion()
@@ -937,9 +946,34 @@ if __name__ == "__main__":
 	# avepowerzvalue = avepower.data.copy()
 
 
-	def plotregtfr(param):
-		avepower.data = feedback_reg['zvalue'][param]
-		avepower.plot_topo(mode=None, vmin=-3, vmax=3, show=True, title = param, yscale='auto') 
+	#def plottfrz(param):
+	#	avepower.data = feedback_reg['zvalue'][param]
+	#	avepower.plot_topo(mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = param, yscale='auto') 
+
+
+	### get data to Michael to check Model fit
+	files = glob.glob('*_data')
+
+	df = pd.DataFrame()
+	for f in files:
+		a= read_object(f)
+		keys = a.keys()
+
+
+		for k in keys:
+			d = a[k]
+			d['Time'] = k[1]
+			d['Freq'] = k[0]
+
+			df = pd.concat([df, d])
+
+	df.to_csv('MEG2232_data')		
+
+
+
+
+
+
 
 
 
