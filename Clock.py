@@ -18,7 +18,7 @@ import statsmodels.formula.api as smf
 import pickle
 from scipy import signal
 from statsmodels.sandbox.stats.multicomp import multipletests
-
+from scipy.stats.mstats import zscore
 
 def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
@@ -618,8 +618,11 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					#for some reason getting inf, get rid of outliers, and look into this later
 					#Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300] 
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
-					Data[(freq,time)]['Pe'].subtract(Data[(freq,time)]['Pe'].mean()) #grand mean centering
-					Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
+					#Data[(freq,time)]['Pe'].subtract(Data[(freq,time)]['Pe'].mean()) #grand mean centering
+					#Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
+					Data[(freq,time)]['Pe'] = zscore(Data[(freq,time)]['Pe'])
+					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
+					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
 
 					md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
 					# this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
@@ -878,6 +881,26 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 
 		return Output, template, Sig_mask 
 
+def get_exampledata():
+	### get data to Michael to check Model fit
+	files = glob.glob('*_data')
+
+	
+	for f in files:
+		a= read_object(f)
+		keys = a.keys()
+
+		df = pd.DataFrame()
+		for k in keys:
+			d = a[k]
+			d['Time'] = k[1]
+			d['Freq'] = k[0]
+
+			df = pd.concat([df, d])
+		fn = 'MEG2232_%s.csv' %k[0]	
+		df.to_csv(fn)
+
+
 
 if __name__ == "__main__":	
 	
@@ -907,10 +930,12 @@ if __name__ == "__main__":
 
 	#### test single trial TFR conversion
 	#chname = raw_input()
-	#chname='MEG0713'
+	chname='MEG2232'
 	#hz = 2
-	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
+	for hz in fullfreqs:
+		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
 	#chname, hz = raw_input().split()
@@ -940,34 +965,18 @@ if __name__ == "__main__":
 	#%matplotlib qt
 
 	# avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
-	# feedback_reg = read_object('feedback_reg')
+	# feedback_reg = read_object('/home/despoB/kaihwang/bin/Clock/npr')
 	# fb_sig_mask = read_object('feedback_reg_sigmask')
 
 	# avepowerzvalue = avepower.data.copy()
 
 
-	#def plottfrz(param):
-	#	avepower.data = feedback_reg['zvalue'][param]
-	#	avepower.plot_topo(mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = param, yscale='auto') 
+	def plottfrz(param):
+		avepower.data = feedback_reg['zvalue'][param]
+		avepower.plot_topo(mode=None, tmin=0, vmin=-2, vmax=2, show=True, title = param, yscale='auto') 
 
 
-	### get data to Michael to check Model fit
-	files = glob.glob('*_data')
 
-	df = pd.DataFrame()
-	for f in files:
-		a= read_object(f)
-		keys = a.keys()
-
-
-		for k in keys:
-			d = a[k]
-			d['Time'] = k[1]
-			d['Freq'] = k[0]
-
-			df = pd.concat([df, d])
-
-	df.to_csv('MEG2232_data')		
 
 
 
