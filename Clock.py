@@ -901,6 +901,10 @@ def get_exampledata():
 		df.to_csv(fn)
 
 
+def plottfrz(param):
+		avepower.data = feedback_reg['zvalue'][param]
+		avepower.plot_topo(mode=None, tmin=0, vmin=-2, vmax=2, show=True, title = param, yscale='auto') 
+
 
 if __name__ == "__main__":	
 	
@@ -934,8 +938,8 @@ if __name__ == "__main__":
 	#hz = 2
 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	for hz in fullfreqs:
-		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+	#for hz in fullfreqs:
+	#	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
 	#chname, hz = raw_input().split()
@@ -969,18 +973,39 @@ if __name__ == "__main__":
 	# fb_sig_mask = read_object('feedback_reg_sigmask')
 
 	# avepowerzvalue = avepower.data.copy()
+	# ave across all sensors
+	#avepower.plot(picks = None, mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = 'All Sensors', yscale='auto', combine ='mean') 
+	# ave power topo plot
+	# avepower.plot_topo(mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = 'Ave Power', yscale='auto') 
 
 
-	def plottfrz(param):
-		avepower.data = feedback_reg['zvalue'][param]
-		avepower.plot_topo(mode=None, tmin=0, vmin=-2, vmax=2, show=True, title = param, yscale='auto') 
+	### Hiearchical clustering
+
+	# vectorize time frequency 3d mat into 2d, chnl by data
+	from scipy.cluster.hierarchy import dendrogram, linkage
+	from collections import defaultdict	
+	from scipy.cluster.hierarchy import fcluster
 
 
+	datavec = np.zeros((306, 20*404))
 
+	for ch in np.arange(306):
+		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
 
+	# generate adj matrices
+	R = np.corrcoef(datavec)
 
+	#linkage then cluster
+	Z = linkage(datavec, 'ward')
+	dn = dendrogram(Z)
 
+	#7 seems reasonable
+	ci=fcluster(Z, 7, criterion='maxclust')
 
+	# plot clustered sensors
+
+	for i in np.unique(ci):
+		avepower.plot_topo(picks=np.where(ci==i)[0], vmin=-3, vmax=3)
 
 
 
