@@ -399,7 +399,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 			bad_channels = np.array([], dtype='<U7')
 			bad_trials = np.array([])
 
-		if any(chname == bad_channels):
+		if chname in bad_channels:
 			continue #skip if bad channel 
 
 		try:
@@ -408,7 +408,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 			baseline_bad_channels = np.array([], dtype='<U7')
 			baseline_bad_trials = np.array([])
 
-		if any(chname == baseline_bad_channels):
+		if chname in baseline_bad_channels:
 			continue #skip if bad channel 	
 
 		# create epoch with one channel of data
@@ -467,7 +467,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			bad_channels = np.array([], dtype='<U7')
 			#bad_trials = np.array([])
 
-		if any(chname == bad_channels):
+		if chname in bad_channels:
 			continue #skip if bad channel 
 
 		try:
@@ -476,7 +476,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			baseline_bad_channels = np.array([], dtype='<U7')
 			#baseline_bad_trials = np.array([])
 
-		if any(chname == baseline_bad_channels):
+		if chname in baseline_bad_channels:
 			continue #skip if bad channel 	
 
 		# create epoch with one channel of data
@@ -881,9 +881,10 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 
 		return Output, template, Sig_mask 
 
-def get_exampledata():
+def get_exampledata(chname):
 	### get data to Michael to check Model fit
-	files = glob.glob('*_data')
+	fn = "*%s*_data" %chname
+	files = glob.glob(fn)
 
 	
 	for f in files:
@@ -897,8 +898,10 @@ def get_exampledata():
 			d['Freq'] = k[0]
 
 			df = pd.concat([df, d])
-		fn = 'MEG2232_%s.csv' %k[0]	
-		df.to_csv(fn)
+		#fn = 'MEG2232_%s.csv' %k[0]	
+		#df.to_csv(fn)
+
+	return df	
 
 
 def plottfrz(param):
@@ -934,10 +937,10 @@ if __name__ == "__main__":
 
 	#### test single trial TFR conversion
 	#chname = raw_input()
-	chname='MEG2232'
+	#chname='MEG2232'
 	#hz = 2
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
+	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
 	#	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
@@ -952,7 +955,7 @@ if __name__ == "__main__":
 	
 	# for hz in freqs:
 	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	# 	Feedbackdata = TFR_regression(fb_Epoch, BaselineTFRline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
+	# 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
 	# 	fn = str(hz) +'_data'
 	# 	save_object(Feedbackdata, fn)
 
@@ -986,7 +989,7 @@ if __name__ == "__main__":
 	from collections import defaultdict	
 	from scipy.cluster.hierarchy import fcluster
 
-
+	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
 	datavec = np.zeros((306, 20*404))
 
 	for ch in np.arange(306):
@@ -1004,8 +1007,39 @@ if __name__ == "__main__":
 
 	# plot clustered sensors
 
+	#for i in np.unique(ci):
+	#	avepower.plot_topo(picks=np.where(ci==i)[0], vmin=-3, vmax=3)
+
+	### get example sensor data from hier clusters to Michael
+	
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+
 	for i in np.unique(ci):
-		avepower.plot_topo(picks=np.where(ci==i)[0], vmin=-3, vmax=3)
+		chname = channels_list[ci==i][0]
+
+		freqs = np.logspace(*np.log10([2, 50]), num=20)
+		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+
+		for hz in freqs:	 		
+			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
+			fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data'
+			save_object(Feedbackdata, fn)
+
+		df = get_exampledata(chname)
+		df.to_csv(fn)	
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
