@@ -881,25 +881,25 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 
 		return Output, template, Sig_mask 
 
-def get_exampledata(chname):
+def get_exampledata(data):
 	### get data to Michael to check Model fit
-	fn = "*%s*_data" %chname
-	files = glob.glob(fn)
+	#fn = "*%s*_data" %chname
+	#files = glob.glob(fn)
 
+	df = pd.DataFrame()
 	
-	for f in files:
-		a= read_object(f)
-		keys = a.keys()
+	#for f in files:
+	#	a = read_object(f)
+	keys = data.keys()
+	
+	for k in keys:
+		d = data[k]
+		d['Time'] = k[1]
+		d['Freq'] = k[0]
 
-		df = pd.DataFrame()
-		for k in keys:
-			d = a[k]
-			d['Time'] = k[1]
-			d['Freq'] = k[0]
-
-			df = pd.concat([df, d])
-		#fn = 'MEG2232_%s.csv' %k[0]	
-		#df.to_csv(fn)
+		df = pd.concat([df, d])
+	#fn = 'MEG2232_%s.csv' %k[0]	
+	#df.to_csv(fn)
 
 	return df	
 
@@ -1000,7 +1000,7 @@ if __name__ == "__main__":
 
 	#linkage then cluster
 	Z = linkage(datavec, 'ward')
-	dn = dendrogram(Z)
+	#dn = dendrogram(Z)
 
 	#7 seems reasonable
 	ci=fcluster(Z, 7, criterion='maxclust')
@@ -1015,6 +1015,7 @@ if __name__ == "__main__":
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 
 	for i in np.unique(ci):
+	
 		chname = channels_list[ci==i][0]
 
 		freqs = np.logspace(*np.log10([2, 50]), num=20)
@@ -1022,17 +1023,12 @@ if __name__ == "__main__":
 
 		for hz in freqs:	 		
 			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
-			fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data'
-			save_object(Feedbackdata, fn)
+			#fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data'
+			#save_object(Feedbackdata, fn)
 
-		df = get_exampledata(chname)
-		df.to_csv(fn)	
-
-
-
-
-
-
+			df = get_exampledata(Feedbackdata)
+			fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data.csv'
+			df.to_csv(fn)	
 
 
 
