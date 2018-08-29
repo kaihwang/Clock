@@ -909,6 +909,56 @@ def plottfrz(param):
 		avepower.plot_topo(mode=None, tmin=0, vmin=-2, vmax=2, show=True, title = param, yscale='auto') 
 
 
+
+def get_cluster():
+
+	# vectorize time frequency 3d mat into 2d, chnl by data
+	from scipy.cluster.hierarchy import dendrogram, linkage
+	from collections import defaultdict	
+	from scipy.cluster.hierarchy import fcluster
+
+	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+	datavec = np.zeros((306, 20*404))
+
+	for ch in np.arange(306):
+		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
+
+	# generate adj matrices
+	R = np.corrcoef(datavec)
+
+	#linkage then cluster
+	Z = linkage(datavec, 'ward')
+	#dn = dendrogram(Z)
+
+	#7 seems reasonable
+	ci=fcluster(Z, 7, criterion='maxclust')
+
+	# plot clustered sensors
+
+	#for i in np.unique(ci):
+	#	avepower.plot_topo(picks=np.where(ci==i)[0], vmin=-3, vmax=3)
+
+	### get example sensor data from hier clusters to Michael
+	
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+
+	for i in np.unique(ci):
+	
+		chname = channels_list[ci==i][0]
+
+		freqs = np.logspace(*np.log10([2, 50]), num=20)
+		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+
+		for hz in freqs:	 		
+			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
+			#fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data'
+			#save_object(Feedbackdata, fn)
+
+			df = get_exampledata(Feedbackdata)
+			fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data.csv'
+			df.to_csv(fn)	
+
+
 if __name__ == "__main__":	
 	
 	#### run indiv subject pipeline
@@ -982,28 +1032,32 @@ if __name__ == "__main__":
 	# avepower.plot_topo(mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = 'Ave Power', yscale='auto') 
 
 
-	### Hiearchical clustering
-
-	# vectorize time frequency 3d mat into 2d, chnl by data
+	### Get Mosaic Mask
 	from scipy.cluster.hierarchy import dendrogram, linkage
 	from collections import defaultdict	
 	from scipy.cluster.hierarchy import fcluster
-
 	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
 	datavec = np.zeros((306, 20*404))
-
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	for ch in np.arange(306):
 		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
-
 	# generate adj matrices
 	R = np.corrcoef(datavec)
-
 	#linkage then cluster
 	Z = linkage(datavec, 'ward')
 	#dn = dendrogram(Z)
-
 	#7 seems reasonable
 	ci=fcluster(Z, 7, criterion='maxclust')
+	#for i in np.unique(ci):
+	i=1
+
+	chname = channels_list[ci==i][0]
+
+	freqs = np.logspace(*np.log10([2, 50]), num=20)
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+
+	#for hz in freqs:	 		
+	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, freqs, 'feedback', do_reg = False, parameters='Pe')
 
 	# plot clustered sensors
 
@@ -1012,23 +1066,18 @@ if __name__ == "__main__":
 
 	### get example sensor data from hier clusters to Michael
 	
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	#datavec = np.zeros((306, 20*404))
 
-	for i in np.unique(ci):
-	
-		chname = channels_list[ci==i][0]
 
-		freqs = np.logspace(*np.log10([2, 50]), num=20)
-		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	### Hiearchical clustering
 
-		for hz in freqs:	 		
-			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
-			#fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data'
-			#save_object(Feedbackdata, fn)
+	#get_cluster()
 
-			df = get_exampledata(Feedbackdata)
-			fn = 'cluster' + str(i) + '_' + chname + '_' + str(hz) +'_data.csv'
-			df.to_csv(fn)	
+
+
+
+
+
 
 
 
