@@ -237,7 +237,8 @@ def epoch_to_TFR(epochs, event, freqs = None, average = True):
 	for now can only return and save average across trials because of memory restriction...
 	'''
 	
-	if freqs == None: #do full spec if not specified
+	
+	if any(freqs == None): #do full spec if not specified
 		freqs = np.logspace(*np.log10([2, 50]), num=20)
 	
 	n_cycles = freqs / 2.
@@ -1048,25 +1049,15 @@ if __name__ == "__main__":
 	#dn = dendrogram(Z)
 	#7 seems reasonable
 	ci=fcluster(Z, 7, criterion='maxclust')
-	#for i in np.unique(ci):
-	i=1
 
-	chname = channels_list[ci==i][0]
+	for i in np.unique(ci):
+	#i=1
+		chname = channels_list[ci==i][0]
+		pos = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] > 2
+		neg = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] < -2
+		fn = 'mask'+chname
+		np.savetxt(fn,neg+pos, fmt='%1d')
 
-	freqs = np.logspace(*np.log10([2, 50]), num=20)
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-
-	#for hz in freqs:	 		
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, freqs, 'feedback', do_reg = False, parameters='Pe')
-
-	# plot clustered sensors
-
-	#for i in np.unique(ci):
-	#	avepower.plot_topo(picks=np.where(ci==i)[0], vmin=-3, vmax=3)
-
-	### get example sensor data from hier clusters to Michael
-	
-	#datavec = np.zeros((306, 20*404))
 
 
 	### Hiearchical clustering
