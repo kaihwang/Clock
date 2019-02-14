@@ -433,7 +433,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 
 
 
-def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, parameters ='Pe'):
+def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, global_model = True, parameters ='Pe'):
 	''' compile TFR dataframe and model params for regression.
 	Need output from get_epochs_for_TFR_regression() as input.
 	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
@@ -451,15 +451,25 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	
 	#mne.set_log_level('WARNING')
 	demographic = pd.read_table('/home/despoB/kaihwang/bin/Clock/subinfo_db')
+	
+	if global_model: #read global fit from Michael to get demo info
+		global_model_df = pd.read_csv('/home/despoB/kaihwang/bin/clock_analysis/meg/data/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
 	Data = dict()
 	for s, subject in enumerate(subjects):
 		
 		#get subject's age
-		try: 
-			age = demographic[demographic['lunaid']==subject]['age'].values[0]
-		except:
-			age = np.nan # no age info...??? 
+		if not global_model: 
+			try: 
+				age = demographic[demographic['lunaid']==subject]['age'].values[0]
+			except:
+				age = np.nan # no age info...??? 
+
+		if global_model:
+			try: 
+				age = demographic[demographic['lunaid']==subject]['age'].values[0] ## no age in csv?? ask Michael
+			except:		
+				age = np.nan
 
 		## check if skip because of bad channels
 		try:
@@ -517,11 +527,21 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 		## extract model parameters and freq poer into dataframe
 		##in the case of testing for PE
 		if (parameters =='Pe') & (Event_types == 'feedback'):
-			#get PE model parameters
-			fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
-			pe = io.loadmat(fn)
-			pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
-			pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
+			
+			#get PE model parameters from new csv fitted to group data (per Michael)
+
+
+			#get PE model parameters from individual model fit
+
+			if global_model:
+				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max']
+				pe = np.delete(pe['pe'],drops, axis=0)
+
+			else:
+				fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
+				pe = io.loadmat(fn)
+				pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
+				pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
 		
 			## create dataframe
 			for f, freq in enumerate(TFR.freqs):
@@ -625,9 +645,19 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
 					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
 
-					md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
-					# this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
-					# note only full ML estimation will return AIC
+					####----Model after discussion with Michael and Alex in Jan 2019----####
+					md = 
+
+
+					# model in lme4:
+					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
+					# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
+					
+
+					####----Model tested in 2018-----####
+					#### md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
+					#### this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
+					#### note only full ML estimation will return AIC
 					
 					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
 					RegStats[(chname, freq, time, 'zvalue')] = md.tvalues.copy()
@@ -763,7 +793,7 @@ def run_TFR_regression(chname, hz):
 	#rt_Epoch, _, _= get_epochs_for_TFR_regression(chname, 'RT')
 	
 	#for hz in fullfreqs:
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	#clockdata = TFR_regression(ck_Epoch, Baseline_Epoch, chname, hz, 'clock', do_reg = True, parameters='Value')
 	#RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
 
@@ -960,6 +990,32 @@ def get_cluster():
 			df.to_csv(fn)	
 
 
+def get_mosaic_mask():
+	from scipy.cluster.hierarchy import dendrogram, linkage
+	from collections import defaultdict	
+	from scipy.cluster.hierarchy import fcluster
+	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+	datavec = np.zeros((306, 20*404))
+	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	for ch in np.arange(306):
+		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
+	# generate adj matrices
+	R = np.corrcoef(datavec)
+	#linkage then cluster
+	Z = linkage(datavec, 'ward')
+	#dn = dendrogram(Z)
+	#7 seems reasonable
+	ci=fcluster(Z, 7, criterion='maxclust')
+
+	for i in np.unique(ci):
+	#i=1
+		chname = channels_list[ci==i][0]
+		pos = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] > 2
+		neg = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] < -2
+		fn = 'mask'+chname
+		np.savetxt(fn,neg+pos, fmt='%1d')
+
+
 if __name__ == "__main__":	
 	
 	#### run indiv subject pipeline
@@ -988,12 +1044,13 @@ if __name__ == "__main__":
 
 	#### test single trial TFR conversion
 	#chname = raw_input()
-	#chname='MEG2232'
-	#hz = 2
-	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	chname='MEG0211'
+	hz = 2
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	#for hz in fullfreqs:
-	#	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, parameters='Pe')
+	for hz in fullfreqs:
+		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
+	
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
 	#chname, hz = raw_input().split()
@@ -1034,34 +1091,9 @@ if __name__ == "__main__":
 
 
 	### Get Mosaic Mask
-	from scipy.cluster.hierarchy import dendrogram, linkage
-	from collections import defaultdict	
-	from scipy.cluster.hierarchy import fcluster
-	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
-	datavec = np.zeros((306, 20*404))
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	for ch in np.arange(306):
-		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
-	# generate adj matrices
-	R = np.corrcoef(datavec)
-	#linkage then cluster
-	Z = linkage(datavec, 'ward')
-	#dn = dendrogram(Z)
-	#7 seems reasonable
-	ci=fcluster(Z, 7, criterion='maxclust')
-
-	for i in np.unique(ci):
-	#i=1
-		chname = channels_list[ci==i][0]
-		pos = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] > 2
-		neg = avepower.data[ mne.pick_channels(channels_list, [chname])][0,:,:] < -2
-		fn = 'mask'+chname
-		np.savetxt(fn,neg+pos, fmt='%1d')
-
-
+	#get_mosaic_mask()
 
 	### Hiearchical clustering
-
 	#get_cluster()
 
 
