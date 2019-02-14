@@ -433,7 +433,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 
 
 
-def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, global_model = True, parameters ='Pe'):
+def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
 	''' compile TFR dataframe and model params for regression.
 	Need output from get_epochs_for_TFR_regression() as input.
 	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
@@ -455,6 +455,12 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	if global_model: #read global fit from Michael to get demo info
 		global_model_df = pd.read_csv('/home/despoB/kaihwang/bin/clock_analysis/meg/data/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
+		for i in range(len(global_model_df)):
+			global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
+	
+		global_model_df['id'] = global_model_df['id'].astype(int)	
+		global_model_df['Rewarded'] = global_model_df['score_csv']>0	
+	
 	Data = dict()
 	for s, subject in enumerate(subjects):
 		
@@ -537,6 +543,9 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max']
 				pe = np.delete(pe,drops, axis=0)
 
+				Rewarded = global_model_df.loc[global_model_df['id'] == subject]['Rewarded']
+				Rewarded = np.delete(Rewarded, drops, axis=0)
+
 			else:
 				fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
 				pe = io.loadmat(fn)
@@ -553,6 +562,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,t].shape[0])+1  
 					pdf.loc[:,'Subject'] = str(subject)
 					pdf.loc[:,'Pe'] = pe
+					pdf.loc[:,'Rewarded'] = Rewarded
 					#pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
 					
 					#pdf['Trial'] = pdf['Trial'].astype('category')  #for testing linear trend of trial history can't set to category..?
@@ -646,14 +656,18 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
 
 					####----Model after discussion with Michael and Alex in Jan 2019----####
-					formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+					
+					if robust_baseline:
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+
+					else:
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+					
 					vcf = {"Trial": "0+C(Trial)"}
 					groups = Data[(freq,time)]["Subject"]	
 					ref = "~Trial" 
+
 					md = sm.MixedLM.from_formula(formula = formula, data = Data, vc_formula = vcf, groups = groups, re_forumla = re).fit(reml=False)
-
-					#Trial + Pe + Age + Age*Pe + Faces*Age + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
-
 
 					# model in lme4:
 					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
