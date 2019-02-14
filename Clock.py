@@ -238,7 +238,7 @@ def epoch_to_TFR(epochs, event, freqs = None, average = True):
 	'''
 	
 	
-	if any(freqs == None): #do full spec if not specified
+	if freqs == None: #do full spec if not specified
 		freqs = np.logspace(*np.log10([2, 50]), num=20)
 	
 	n_cycles = freqs / 2.
@@ -535,7 +535,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 
 			if global_model:
 				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max']
-				pe = np.delete(pe['pe'],drops, axis=0)
+				pe = np.delete(pe,drops, axis=0)
 
 			else:
 				fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
@@ -646,7 +646,13 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
 
 					####----Model after discussion with Michael and Alex in Jan 2019----####
-					md = 
+					formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+					vcf = {"Trial": "0+C(Trial)"}
+					groups = Data[(freq,time)]["Subject"]	
+					ref = "~Trial" 
+					md = sm.MixedLM.from_formula(formula = formula, data = Data, vc_formula = vcf, groups = groups, re_forumla = re).fit(reml=False)
+
+					#Trial + Pe + Age + Age*Pe + Faces*Age + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
 
 
 					# model in lme4:
@@ -1046,10 +1052,10 @@ if __name__ == "__main__":
 	#chname = raw_input()
 	chname='MEG0211'
 	hz = 2
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	for hz in fullfreqs:
-		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
+	#for hz in fullfreqs:
+	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
 	
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
