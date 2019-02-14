@@ -540,16 +540,19 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			#get PE model parameters from individual model fit
 
 			if global_model:
-				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max']
-				pe = np.delete(pe,drops, axis=0)
+				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max'].values
+				pe = np.delete(pe, drops, axis=0)
 
-				Rewarded = global_model_df.loc[global_model_df['id'] == subject]['Rewarded']
+				Rewarded = global_model_df.loc[global_model_df['id'] == subject]['Rewarded'].values
 				Rewarded = np.delete(Rewarded, drops, axis=0)
+
+				run = global_model_df.loc[global_model_df['id'] == subject]['run'].values
+				run = np.delete(run, drops, axis=0)
 
 			else:
 				fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
 				pe = io.loadmat(fn)
-				pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
+				#pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
 				pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
 		
 			## create dataframe
@@ -563,6 +566,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					pdf.loc[:,'Subject'] = str(subject)
 					pdf.loc[:,'Pe'] = pe
 					pdf.loc[:,'Rewarded'] = Rewarded
+					pdf.loc[:,'Run'] = run
 					#pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
 					
 					#pdf['Trial'] = pdf['Trial'].astype('category')  #for testing linear trend of trial history can't set to category..?
@@ -645,7 +649,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 			for freq in [freqs]:
 				for time in times[250:]:
 					Data[(freq,time)] = Data[(freq,time)].dropna()
-
+					Data[(freq,time)]['Rewarded'] = Data[(freq,time)]['Rewarded'].astype(int)
 					#for some reason getting inf, get rid of outliers, and look into this later
 					#Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300] 
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
@@ -663,11 +667,11 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					else:
 						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
 					
-					vcf = {"Trial": "0+C(Trial)"}
-					groups = Data[(freq,time)]["Subject"]	
+					vcf = {"Run": "0+C(Run)"}
+					#groups = Data[(freq,time)]["Subject"].values	
 					ref = "~Trial" 
 
-					md = sm.MixedLM.from_formula(formula = formula, data = Data, vc_formula = vcf, groups = groups, re_forumla = re).fit(reml=False)
+					md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
 
 					# model in lme4:
 					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
