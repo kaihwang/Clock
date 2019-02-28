@@ -20,6 +20,10 @@ from scipy import signal
 from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats.mstats import zscore
 
+#mkae paths global
+datapath = '/data/backed_up/kahwang/Clock/'
+save_path='/data/backed_up/kahwang/Clock/'
+
 def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
 	input: subject, Event_types
@@ -29,7 +33,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''
 	
 	#setup variables
-	datapath = '/home/despoB/kaihwang/Clock/'
+	#datapath = '/data/backed_up/kahwang/Clock/'
 	
 	#Event_types = ['clock', 'feedback', 'ITI', 'RT']
 
@@ -256,7 +260,7 @@ def epoch_to_TFR(epochs, event, freqs = None, average = True):
 def indiv_subject_raw_to_tfr(subject):
 	''' individual pipeline start to finish'''
 	Event_types =['clock', 'feedback', 'ITI', 'RT']
-	datapath = '/home/despoB/kaihwang/Clock/'
+	
 
 	##### create epoch object
 	epochs = raw_to_epoch(subject, Event_types)
@@ -278,7 +282,7 @@ def indiv_subject_raw_to_tfr(subject):
 def group_average_evoke(subjects, event):
 	'''average evoked responses'''
 	
-	datapath = '/home/despoB/kaihwang/Clock/'
+	#datapath = '/home/despoB/kaihwang/Clock/'
 
 	subject = str(int(subjects[0]))
 	fn = datapath + '%s/MEG/%s_%s-epo.fif' %(subject, subject, event)
@@ -300,7 +304,7 @@ def group_average_evoke(subjects, event):
 
 
 def run_group_ave_evoke():
-	save_path='/home/despoB/kaihwang/bin/Clock'
+	#save_path='/data/backed_up/kahwang/Clock/'
 	Event_types =['clock', 'feedback', 'RT']
 	subjects = np.loadtxt(save_path+'/TFR_subjects', dtype=int)
 
@@ -316,7 +320,7 @@ def group_average_power(subjects, event, normalize_within_subject = False):
 	Event_types =['clock', 'feedback', 'ITI', 'RT']
 	also need to set whether or not to normalize TFR within a subject
 	'''
-	datapath = '/home/despoB/kaihwang/Clock/'	
+	#datapath = '/home/despoB/kaihwang/Clock/'	
 	
 	#determine size
 	subject = str(int(subjects[0]))
@@ -349,7 +353,7 @@ def group_average_power(subjects, event, normalize_within_subject = False):
 
 
 def run_group_ave_power():
-	save_path='/home/despoB/kaihwang/bin/Clock'
+	#save_path='/home/despoB/kaihwang/bin/Clock'
 	Event_types =['clock', 'feedback', 'RT']
 	subjects = np.loadtxt(save_path+'/TFR_subjects', dtype=int)
 
@@ -382,9 +386,9 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 
 	#subjects = [10637, 10638] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	#subjects = [11253]
-	subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 	#subjects =[11253]
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 
 	Event_Epoch = {}
@@ -450,10 +454,10 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	
 	#mne.set_log_level('WARNING')
-	demographic = pd.read_table('/home/despoB/kaihwang/bin/Clock/subinfo_db')
+	demographic = pd.read_table('/home/kahwang/bin/Clock/subinfo_db')
 	
 	if global_model: #read global fit from Michael to get demo info
-		global_model_df = pd.read_csv('/home/despoB/kaihwang/bin/clock_analysis/meg/data/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
+		global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
 		for i in range(len(global_model_df)):
 			global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
@@ -550,7 +554,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				run = np.delete(run, drops, axis=0)
 
 			else:
-				fn = "/home/despoB/kaihwang/Clock_behav/%s_pe.mat" %(subject)
+				fn = "/data/backed_up/kahwang/Clock_behav/%s_pe.mat" %(subject)
 				pe = io.loadmat(fn)
 				#pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
 				pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
@@ -583,7 +587,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 		## Response lock analysis				
 		elif (parameters =='Value') & (Event_types == 'RT'):
 			#get PE model parameters
-			fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
+			fn = "/data/backed_up/kahwang/Clock_behav/%s_value.mat" %(subject)
 			value = io.loadmat(fn)
 			value = np.delete(value['value'],drops, axis=0)	
 			value = np.max(value, axis=1) # take the max
@@ -614,7 +618,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 		##in the case of testing for value function		
 		elif (parameters =='Value') & (Event_types == 'clock'):
 			# get value model parameters
-			fn = "/home/despoB/kaihwang/Clock_behav/%s_value.mat" %(subject)
+			fn = "/data/backed_up/kahwang/Clock_behav/%s_value.mat" %(subject)
 			value = io.loadmat(fn)
 			value = np.delete(value['value'],drops, axis=0)				
 
@@ -690,7 +694,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
 					RegStats[(chname, freq, time, 'aic')] = md.aic
 
-				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
 		
 		if (parameters =='Value') & (Event_types == 'clock'):
@@ -714,7 +718,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				RegStats[(chname, freq, 'conf_int')] = md.conf_int().copy()
 				RegStats[(chname, freq, 'aic')] = md.aic
 
-				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
 
 
@@ -738,7 +742,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
 					RegStats[(chname, freq, time, 'aic')] = md.aic
 
-				fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
 
 		return RegStats
@@ -777,7 +781,7 @@ def run_autoreject(subject):
 		thresh_func = partial(compute_thresholds, picks=picks, random_state=42)
 		ar = LocalAutoRejectCV(n_interpolates, consensus_percs, picks=picks, thresh_func=thresh_func)	
 		egrad = ar.fit(epochs)
-		fn = '/home/despoB/kaihwang/Clock/autoreject/' + str(subject) + '_ar_' + event + '_grad'
+		fn = datapath +'autoreject/' + str(subject) + '_ar_' + event + '_grad'
 		save_object(egrad, fn)
 		
 		#do mag
@@ -785,7 +789,7 @@ def run_autoreject(subject):
 		thresh_func = partial(compute_thresholds, picks=picks, random_state=42)
 		ar = LocalAutoRejectCV(n_interpolates, consensus_percs, picks=picks, thresh_func=thresh_func)
 		emag = ar.fit(epochs)	
-		fn = '/home/despoB/kaihwang/Clock/autoreject/' + str(subject) + '_ar_' + event + '_mag'
+		fn = datapath +'autoreject/' + str(subject) + '_ar_' + event + '_mag'
 		save_object(emag, fn)
 
 
@@ -793,9 +797,9 @@ def get_bad_channels_and_trials(subject, event, threshold):
 	''' get list of bad channels and trails from autoreject procedure, need to give threshold (percentage of bad segments to be rejected)'''
 
 	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
-	fn = '/home/despoB/kaihwang/Clock/autoreject' + '/%s_ar_%s_grad' %(subject, event)
+	fn = datapath +'autoreject/' + '/%s_ar_%s_grad' %(subject, event)
 	grad = read_object(fn)
-	fn = '/home/despoB/kaihwang/Clock/autoreject' + '/%s_ar_%s_mag' %(subject, event)
+	fn = datapath +'autoreject/' + '/%s_ar_%s_mag' %(subject, event)
 	mag = read_object(fn)
 
 	#num_trial = grad.bad_segments.shape[0]
@@ -831,15 +835,15 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	# trials TFR time locked to response onset
 	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
 	# trials TFR time locked to feedback onset
-	regdatadir = '/home/despoB/kaihwang/Clock/Group/'
-	freqs = np.loadtxt('/home/despoB/kaihwang/bin/Clock/fullfreqs')
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	regdatadir = datapath + 'Group/' 
+	freqs = np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
+	channels_list = np.load('/home/kahwang/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
 	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
 	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial', 'Intercept'] #, 'Trial'
 
 	if trial_type == 'feedback':
-		template = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+		template = mne.time_frequency.read_tfrs('/data/backed_up/kahwang/Clock/Group/group_feedback_power-tfr.h5')[0]
 
 		#setup var
 		Output ={}
@@ -972,7 +976,7 @@ def get_cluster():
 	from collections import defaultdict	
 	from scipy.cluster.hierarchy import fcluster
 
-	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+	avepower = mne.time_frequency.read_tfrs('/data/backed_up/kahwang/Clock/Group/group_feedback_power-tfr.h5')[0]
 	datavec = np.zeros((306, 20*404))
 
 	for ch in np.arange(306):
@@ -995,7 +999,7 @@ def get_cluster():
 
 	### get example sensor data from hier clusters to Michael
 	
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
 	for i in np.unique(ci):
 	
@@ -1018,9 +1022,9 @@ def get_mosaic_mask():
 	from scipy.cluster.hierarchy import dendrogram, linkage
 	from collections import defaultdict	
 	from scipy.cluster.hierarchy import fcluster
-	avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
+	avepower = mne.time_frequency.read_tfrs('/data/backed_up/kahwang/Clock/Group/group_feedback_power-tfr.h5')[0]
 	datavec = np.zeros((306, 20*404))
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 	for ch in np.arange(306):
 		datavec[ch,:] = avepower.data[ch,:,30:-30].flatten()
 	# generate adj matrices
