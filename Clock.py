@@ -8,7 +8,7 @@ import mne as mne
 import os.path as op
 import glob
 from functools import partial 
-from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
+#from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
 from mne.utils import check_random_state 
 #from collections import defaultdict
 import sys
@@ -158,7 +158,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 def get_dropped_trials_list(epoch):
 	'''mne_read_epoch will automatically drop trials that are too short without warning, so need to retrieve those tiral indx...'''
 
-	drop_log = epoch[epoch.keys()[0]].drop_log
+	drop_log = epoch[list(epoch.keys())[0]].drop_log
 	trial_list = []
 
 	# event lists start with "0 0 0", get rid of those
@@ -180,7 +180,7 @@ def get_dropped_trials_list(epoch):
 
 def get_epoch_trial_types(epoch):
 	''' get the order of face conditions'''
-	trig_codes = epoch[epoch.keys()[0]].events[:,2]
+	trig_codes = epoch[list(epoch.keys())[0]].events[:,2]
 	event = epoch.keys()[0]
 
 	Face_codes = {
@@ -1074,7 +1074,7 @@ if __name__ == "__main__":
 	#chname = raw_input()
 	chname='MEG0211'
 	hz = 2
-	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
