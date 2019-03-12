@@ -19,6 +19,8 @@ import pickle
 from scipy import signal
 from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats.mstats import zscore
+from pymer4.models import Lm, Lmer
+from pymer4.utils import get_resource_path
 
 #mkae paths global
 datapath = '/data/backed_up/kahwang/Clock/'
@@ -666,17 +668,18 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					####----Model after discussion with Michael and Alex in Jan 2019----####
 					
 					if robust_baseline:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (1 + Trial | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
 
 					else:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (1 + Trial | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
 					
-					vcf = {"Run": "0+C(Run)"}
+					#vcf = {"Run": "0+C(Run)"}
 					#groups = Data[(freq,time)]["Subject"].values	
-					ref = "~Trial" 
+					#ref = "~Trial" 
+					#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
 
-					md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
-
+					md = Lmer(formula ,data=Data[(freq,time)].dropna())
+					md_output = md.fit()
 					# model in lme4:
 					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
 					# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
@@ -687,12 +690,13 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					#### this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
 					#### note only full ML estimation will return AIC
 					
-					RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
-					RegStats[(chname, freq, time, 'zvalue')] = md.tvalues.copy()
-					RegStats[(chname, freq, time, 'llf')] = md.llf.copy()
-					RegStats[(chname, freq, time, 'pvalues')] = md.pvalues.copy()
-					RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
-					RegStats[(chname, freq, time, 'aic')] = md.aic
+					RegStats[(chname, freq, time, 'parameters')] = md_output['Estimate'] #md.params.copy()
+					RegStats[(chname, freq, time, 'zvalue')] = md_output['T-stat']
+					RegStats[(chname, freq, time, 'llf')] = md.logLike
+					RegStats[(chname, freq, time, 'pvalues')] = md_output['P-val'] 
+					RegStats[(chname, freq, time, '2.5_ci')] = md_output['2.5_ci']
+					RegStats[(chname, freq, time, '97.5_ci')] = md_output['97.5_ci']
+					RegStats[(chname, freq, time, 'aic')] = md.AIC
 
 				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
 				save_object(RegStats, fn)
@@ -1075,10 +1079,15 @@ if __name__ == "__main__":
 	chname='MEG0211'
 	hz = 2
 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
+	save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
+	save_object(dl, 'dlexampchan_hz2')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
-	
+	save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
+
+	RegFeedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
 	#chname, hz = raw_input().split()
