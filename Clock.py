@@ -181,7 +181,7 @@ def get_dropped_trials_list(epoch):
 def get_epoch_trial_types(epoch):
 	''' get the order of face conditions'''
 	trig_codes = epoch[list(epoch.keys())[0]].events[:,2]
-	event = epoch.keys()[0]
+	event =list(epoch.keys())[0]
 
 	Face_codes = {
 	'clock' : { 
@@ -204,11 +204,11 @@ def get_epoch_trial_types(epoch):
 
 	out = ['NaN'] * len(trig_codes)
 	for i, trig in enumerate(trig_codes):
-		if any(trig == Face_codes[epoch.keys()[0]]['fear.face']):
+		if any(trig == Face_codes[list(epoch.keys())[0]]['fear.face']):
 			out[i] = 'Fear'
-		elif any(trig == Face_codes[epoch.keys()[0]]['happy.face']):	
+		elif any(trig == Face_codes[list(epoch.keys())[0]]['happy.face']):	
 			out[i] = 'Happy'
-		elif any(trig == Face_codes[epoch.keys()[0]]['scram.face']):	
+		elif any(trig == Face_codes[list(epoch.keys())[0]]['scram.face']):	
 			out[i] = 'ASramble'
 		else:
 			pass
@@ -447,7 +447,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	#subjects = [11345, 11346, 11347] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	#subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
 	
-	subjects = Event_Epoch.keys()
+	subjects = list(Event_Epoch.keys())
 	#Event_types='clock'
 	#channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
 	#chname = 'MEG0713'
@@ -949,7 +949,7 @@ def get_exampledata(data):
 	
 	#for f in files:
 	#	a = read_object(f)
-	keys = data.keys()
+	keys = list(data.keys())
 	
 	for k in keys:
 		d = data[k]
