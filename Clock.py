@@ -532,7 +532,13 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 		#TFR.apply_baseline((-1,-.2), mode='zscore')
 		baseline_power = np.broadcast_to(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),TFR.data.shape) #ave across time and trial, then broadcast to the right dimension
 		#baseline_power_sd = np.broadcast_to(np.std(BaselineTFR.data.flatten()), TFR.data.shape)
-		TFR.data = 100*((TFR.data - baseline_power) / baseline_power) #convert to percent of signal change
+		
+		## this is convert to percent signal change
+		#TFR.data = 100*((TFR.data - baseline_power) / baseline_power) #convert to percent of signal change
+		
+		## Michale thinks it is better to convert to db, which is 10log10(singal/noise)
+		TFR.data = 10 * np.log10(TFR.data / baseline_power) 
+
 		#TFR.data = (TFR.data - baseline_power) / baseline_power_sd #convert to zscore
 		times = TFR.times
 
@@ -1089,16 +1095,16 @@ if __name__ == "__main__":
 	#chname = raw_input()
 	chname='MEG0211'
 	hz = 2
-	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	#save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
-	#save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
-	#save_object(dl, 'dlexampchan_hz2')
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
+	save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
+	save_object(dl, 'dlexampchan_hz2')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
-	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
-	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
+	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
+	save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
 
-	Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
+	#Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
 
 
 	#RegFeedbackdata_base = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
