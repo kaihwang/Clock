@@ -456,7 +456,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	
 	#mne.set_log_level('WARNING')
-	demographic = pd.read_table('/home/kahwang/bin/Clock/subinfo_db')
+	demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
 	
 	if global_model: #read global fit from Michael to get demo info
 		global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
@@ -570,9 +570,20 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					pdf.loc[:,'Pow'] = TFR.data[:,:,f,t].squeeze() #TFR.data dimension is trial x channel x freq x time
 					pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,t].shape[0])+1  
 					pdf.loc[:,'Subject'] = str(subject)
-					pdf.loc[:,'Pe'] = pe
-					pdf.loc[:,'Rewarded'] = Rewarded
-					pdf.loc[:,'Run'] = run
+					try: 
+						pdf.loc[:,'Pe'] = pe
+					except:
+						pdf.loc[:,'Pe'] = np.nan
+					
+					try:
+						pdf.loc[:,'Rewarded'] = Rewarded
+					except:
+						pdf.loc[:,'Rewarded'] = np.nan
+
+					try: 
+						pdf.loc[:,'Run'] = run
+					except:
+						pdf.loc[:,'Run'] = np.nan
 					#pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
 					
 					#pdf['Trial'] = pdf['Trial'].astype('category')  #for testing linear trend of trial history can't set to category..?
@@ -668,18 +679,18 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					####----Model after discussion with Michael and Alex in Jan 2019----####
 					
 					if robust_baseline:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (1 + Trial | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
-
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
 					else:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (1 + Trial | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
 					
 					#vcf = {"Run": "0+C(Run)"}
 					#groups = Data[(freq,time)]["Subject"].values	
 					#ref = "~Trial" 
 					#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
 
-					md = Lmer(formula ,data=Data[(freq,time)].dropna())
+					md = Lmer(formula ,data=Data[(freq,time)]) 
 					md_output = md.fit()
+					
 					# model in lme4:
 					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
 					# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
@@ -698,7 +709,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, '97.5_ci')] = md_output['97.5_ci']
 					RegStats[(chname, freq, time, 'aic')] = md.AIC
 
-				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_RobustBaseline' + str(robust_baseline) + '_mlm.stats'		
 				save_object(RegStats, fn)
 		
 		if (parameters =='Value') & (Event_types == 'clock'):
@@ -1078,16 +1089,20 @@ if __name__ == "__main__":
 	#chname = raw_input()
 	chname='MEG0211'
 	hz = 2
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
-	save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
-	save_object(dl, 'dlexampchan_hz2')
+	#fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	#save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
+	#save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
+	#save_object(dl, 'dlexampchan_hz2')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
-	save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
+	#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
+	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
 
-	RegFeedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
+	Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
+
+
+	#RegFeedbackdata_base = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+	#RegFeedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 
 	#chname, hz = raw_input().split()
