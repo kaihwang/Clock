@@ -681,6 +681,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)]['Pe'] = zscore(Data[(freq,time)]['Pe'])
 					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
 					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
+					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']!=-np.inf]  # account for 0 power
 
 					####----Model after discussion with Michael and Alex in Jan 2019----####
 					
