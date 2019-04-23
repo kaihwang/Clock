@@ -674,7 +674,6 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)] = Data[(freq,time)].dropna()
 					Data[(freq,time)]['Rewarded'] = Data[(freq,time)]['Rewarded'].astype(int)
 					#for some reason getting inf, get rid of outliers, and look into this later
-					#Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300] 
 					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
 					#Data[(freq,time)]['Pe'].subtract(Data[(freq,time)]['Pe'].mean()) #grand mean centering
 					#Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
@@ -682,6 +681,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
 					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
 					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']!=-np.inf]  # account for 0 power
+					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']>-300] 
 
 					####----Model after discussion with Michael and Alex in Jan 2019----####
 					
