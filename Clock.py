@@ -107,28 +107,28 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 			# ITI is 850 ms after feedback
 			if event == 'ITI':
 				try:
-					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
+					fn = datapath + '%s/MEG/MEG_%s_*%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
 					triggers = mne.read_events(glob.glob(fn)[0])
 					triggers[1:,0] = triggers[1:,0] +213 #shift 850ms
 					triggers = np.delete(triggers, -1, 0)  # delete the last row becuase for some runs final trial doesn't have a long enough ITI. UGH.
-					baseline = None
+					#baseline = None
 				except:
 					triggers = None
 
 			elif event == 'RT':
 				try:
-					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
+					fn = datapath + '%s/MEG/MEG_%s_*%s_%s_ds4.eve' %(subject, subject, r, 'feedback')
 					triggers = mne.read_events(glob.glob(fn)[0])
 					triggers[1:,0] = triggers[1:,0] - 75 #shift 300ms
-					baseline = (None, 0.0)
+					#baseline = (None, 0.0)
 				except:
 					triggers = None
 
 			else:
 				try:	
-					fn = datapath + '%s/MEG/MEG_%s_*_%s_%s_ds4.eve' %(subject, subject, r, event)
+					fn = datapath + '%s/MEG/MEG_%s_*%s_%s_ds4.eve' %(subject, subject, r, event)
 					triggers = mne.read_events(glob.glob(fn)[0])
-					baseline = (None, 0.0)
+					#baseline = (None, 0.0)
 				except:
 					triggers = None
 
@@ -137,7 +137,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 
 					try:
 						epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')
+							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore', verbose=None)
 					except:
 						pass #if fif file exist but fail for whatev reason
 				else:
@@ -149,7 +149,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 					try:
 						epochs[event] = mne.concatenate_epochs((epochs[event], 
 							mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = baseline, picks=channels_list, on_missing = 'ignore')))	
+							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')))	
 					except:
 						pass
 				else:
@@ -527,10 +527,10 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 		#event = 'clock'
 		TFR = epoch_to_TFR(e, Event_types, freqs, average = False)
 		BaselineTFR = epoch_to_TFR(b, 'ITI', freqs, average = False)
-
+		print(subject)
 		## baseline correction
 		#TFR.apply_baseline((-1,-.2), mode='zscore')
-		baseline_power = np.broadcast_to(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),TFR.data.shape) #ave across time and trial, then broadcast to the right dimension
+		baseline_power = np.tile(np.mean(np.mean(BaselineTFR.data,axis=3),axis=0),(TFR.data.shape[0],1,1,TFR.data.shape[3])) #ave across time and trial, then broadcast to the right dimension
 		#baseline_power_sd = np.broadcast_to(np.std(BaselineTFR.data.flatten()), TFR.data.shape)
 		
 		## this is convert to percent signal change
@@ -579,11 +579,15 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					try: 
 						pdf.loc[:,'Pe'] = pe
 					except:
+						msg = 'check number of trials in epoch and pe model for subject %s' %subject
+						print(msg)
 						pdf.loc[:,'Pe'] = np.nan
 					
 					try:
 						pdf.loc[:,'Rewarded'] = Rewarded
 					except:
+						msg = 'check number of trials in epoch and rewarded model for subject %s' %subject
+						print(msg)
 						pdf.loc[:,'Rewarded'] = np.nan
 
 					try: 
@@ -696,7 +700,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
 
 					md = Lmer(formula ,data=Data[(freq,time)]) 
-					md_output = md.fit()
+					md_output = md.fit(REML=False)
 					
 					# model in lme4:
 					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
@@ -1103,7 +1107,7 @@ if __name__ == "__main__":
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in fullfreqs:
 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
-	save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
+	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
 
 	#Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
 
