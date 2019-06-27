@@ -89,18 +89,20 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 	}
 
 	epochs = dict.fromkeys(Event_types)
+	epo = []
 
-	for r in np.arange(1,9):
+	for event in Event_types:
 		
-		try:
-			fn = datapath + '%s/MEG/%s_clock_run%s_dn_ds_sss_raw.fif' %(subject, subject, r)
-			raw = mne.io.read_raw_fif(fn)		
-			picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
-		except:
-			break # skip all if fif file does not exist
-
+		for r in np.arange(1,9):
 		
-		for event in Event_types:
+			try:
+				fn = datapath + '%s/MEG/%s_clock_run%s_dn_ds_sss_raw.fif' %(subject, subject, r)
+				raw = mne.io.read_raw_fif(fn)		
+				picks = mne.pick_types(raw.info, meg=True, eeg=False, eog=False)
+			except:
+				st = 'cant read fif file for subject %s run number %s' %(subject, r)
+				print(st)
+				break # skip all if fif file does not exist
 
 			#adjust evevnts:
 			# RT can be calculated by 300ms prior to feedback onset
@@ -132,29 +134,49 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 				except:
 					triggers = None
 
-			if r == 1: #create epoch with first run	
-				if triggers is not None:
+			try:
+				e = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
+							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')
 
-					try:
-						epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore', verbose=None)
-					except:
-						pass #if fif file exist but fail for whatev reason
-				else:
-					pass
+				if any(raw.times[-1]/.004 < triggers[:,0]): #raw.times[-1]/.004 < triggers[-1,0]: #bizzare that preproc  cut off the end...??
+					e.drop(np.where(raw.times[-1]/.004 < triggers[:,0])[0]-1, reason='TOO SHORT') #e.drop(e.events.shape[0]-1, reason='TOO SHORT')
+				epo.append(e)	
+
+			except:
+				st = 'cant epoch for subject %s run number %s' %(subject, r)
+				print(st)
+				
+				pass 
+			# if r == 1: #create epoch with first run	
+			# 	if triggers is not None:
+
+			# 		try:
+			# 			epochs[event] = mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
+			# 				tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')
+			# 		except:
+			# 			st = 'cant epoch for subject %s run number %s' %(subject, r)
+			# 			print(st)
+			# 			pass #if fif file exist but fail for whatev reason
+			# 	else:
+			# 		pass
 			
-			else: #concat epochs
-				if triggers is not None:
+			# else: #concat epochs
+			# 	if triggers is not None:
 
-					try:
-						epochs[event] = mne.concatenate_epochs((epochs[event], 
-							mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
-							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')))	
-					except:
-						pass
-				else:
-					pass
-	return epochs	
+			# 		try:
+			# 			epochs[event] = mne.concatenate_epochs((epochs[event], 
+			# 				mne.Epochs(raw, events=triggers, event_id=Event_codes[event], 
+			# 				tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')))	
+			# 		except:
+			# 			st = 'cant epoch for subject %s run number %s' %(subject, r)
+			# 			print(st)
+			# 			pass
+			# 	else:
+			# 		pass
+
+		epochs[event] = mne.concatenate_epochs(epo)	
+
+	return epochs
 
 
 def get_dropped_trials_list(epoch):
@@ -243,8 +265,8 @@ def epoch_to_TFR(epochs, event, freqs = None, average = True):
 	for now can only return and save average across trials because of memory restriction...
 	'''
 	
-	
-	if freqs == None: #do full spec if not specified
+	if freqs is None: 
+	#if not any(freqs): #do full spec if not specified
 		freqs = np.logspace(*np.log10([2, 50]), num=20)
 	
 	n_cycles = freqs / 2.
@@ -387,9 +409,10 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 	Will output trial epoch, baseline epoch, and list of bad trilas as dict (where subject ID is key) '''
 
 	#subjects = [10637, 10638] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
-	#subjects = [11253]
+	#subjects = [11335]
+	
 	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
-	#subjects =[11253]
+	#subjects =[10891]
 	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 
@@ -459,13 +482,15 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
 	
 	if global_model: #read global fit from Michael to get demo info
-		global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
-		for i in range(len(global_model_df)):
-			global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
+		global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+		# global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
+
+		# for i in range(len(global_model_df)):
+		# 	global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
 	
-		global_model_df['id'] = global_model_df['id'].astype(int)	
-		global_model_df['Rewarded'] = global_model_df['score_csv']>0	
+		# global_model_df['id'] = global_model_df['id'].astype(int)	
+		# global_model_df['Rewarded'] = global_model_df['score_csv']>0	
 	
 	Data = dict()
 	for s, subject in enumerate(subjects):
@@ -567,6 +592,9 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 				#pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
 				pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
 		
+			#### here insert code to check if number of trials for each block matches between epoch and model_df	
+				
+
 			## create dataframe
 			for f, freq in enumerate(TFR.freqs):
 				for t, time in enumerate(TFR.times):  
@@ -720,7 +748,10 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 					RegStats[(chname, freq, time, '97.5_ci')] = md_output['97.5_ci']
 					RegStats[(chname, freq, time, 'aic')] = md.AIC
 
-				fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_RobustBaseline' + str(robust_baseline) + '_mlm.stats'		
+				if robust_baseline:	
+					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_RobustBaseline' + '_mlm.stats'		
+				if not robust_baseline:
+					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_fullmodel' + '_mlm.stats'	
 				save_object(RegStats, fn)
 		
 		if (parameters =='Value') & (Event_types == 'clock'):
@@ -822,7 +853,7 @@ def run_autoreject(subject):
 def get_bad_channels_and_trials(subject, event, threshold):
 	''' get list of bad channels and trails from autoreject procedure, need to give threshold (percentage of bad segments to be rejected)'''
 
-	channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 	fn = datapath +'autoreject/' + '/%s_ar_%s_grad' %(subject, event)
 	grad = read_object(fn)
 	fn = datapath +'autoreject/' + '/%s_ar_%s_mag' %(subject, event)
@@ -1099,14 +1130,15 @@ if __name__ == "__main__":
 	#### test single trial TFR conversion
 	#chname = raw_input()
 	chname='MEG0211'
-	hz = 2
+	#hz=2
 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
-	save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
-	save_object(dl, 'dlexampchan_hz2')
+	#save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
+	#save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
+	#save_object(dl, 'dlexampchan_hz2')
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	#for hz in fullfreqs:
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, global_model = True, parameters='Pe')
+	#for hz in np.arange(2,62,2):
+	hz=2
+	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
 
 	#Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
