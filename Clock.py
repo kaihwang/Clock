@@ -1103,93 +1103,21 @@ def get_mosaic_mask():
 
 if __name__ == "__main__":	
 	
-	#### run indiv subject pipeline
-	# subject = raw_input()
-	# indiv_subject_raw_to_tfr(subject)
-
-	#### group average evoke response
-	#run_group_ave_evoke()
-
-	#### group averaged TFR power
-	# run_group_ave_power()
-
-		#to access data: power[event].data
-		#to access time: power[event].time
-		#to access fre : power[event].freqs
-		#to accesss ave: power[event].nave
-
-
-	#### run autoreject pipeline to get bad data segment indices
-	#subject = raw_input()
-	#run_autoreject(subject)
-
-
-	#### need to get bad trial statistics
-
-
-	#### test single trial TFR conversion
-	#chname = raw_input()
-	chname='MEG0211'
-	#hz=2
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	#save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
-	#save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
-	#save_object(dl, 'dlexampchan_hz2')
-	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-	#for hz in np.arange(2,62,2):
-	hz=2
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
-	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
-
-	#Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
-
-
-	#RegFeedbackdata_base = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
-	#RegFeedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
-	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
-
-	#chname, hz = raw_input().split()
-	#hz = np.float(hz)
-	#run_TFR_regression(chname, hz)
-
-	#### exaime distribution
-	# chname='MEG2232'
-	# freqs = np.logspace(*np.log10([2, 50]), num=20)#10.88
 	
-	# for hz in freqs:
-	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	# 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = False, parameters='Pe')
-	# 	fn = str(hz) +'_data'
-	# 	save_object(Feedbackdata, fn)
 
-	### complie freq by freq channel by channel results
+	#### load epoch data, chn by chn, run tfr hz by hz, then run regression
+	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
 
-	#feedback_reg, avepower, fb_sig_mask = compile_group_reg('feedback')
-	#save_object(feedback_reg, 'feedback_reg')
-	#save_object(fb_sig_mask, 'feedback_reg_sigmask')
+	for chname in channels_list[190:191]:
+
+		fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
+		fb_Epoch = read_object(fn)
+		fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
+		Baseline_Epoch = read_object(fn)
+
+		for hz in np.arange(2,4,2):
+			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	
-	## Visualize
-	#plt.ion()
-	#matplotlib.use('Qt4Agg')
-	#rm ~/.ICEauthority
-	#%matplotlib qt
-
-	# avepower = mne.time_frequency.read_tfrs('/home/despoB/kaihwang/bin/Clock/Data/group_feedback_power-tfr.h5')[0]
-	# feedback_reg = read_object('/home/despoB/kaihwang/bin/Clock/npr')
-	# fb_sig_mask = read_object('feedback_reg_sigmask')
-
-	# avepowerzvalue = avepower.data.copy()
-	# ave across all sensors
-	#avepower.plot(picks = None, mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = 'All Sensors', yscale='auto', combine ='mean') 
-	# ave power topo plot
-	# avepower.plot_topo(mode=None, tmin=0, vmin=-3, vmax=3, show=True, title = 'Ave Power', yscale='auto') 
-
-
-	### Get Mosaic Mask
-	#get_mosaic_mask()
-
-	### Hiearchical clustering
-	#get_cluster()
 
 
 
