@@ -1,4 +1,4 @@
-#### scripts to use MNE to analyze Clock MEG data
+#### scripts to use MNE to analyze Clock MEG data, PSU version
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -462,7 +462,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 
 
 
-def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
+def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, global_model_df, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
 	''' compile TFR dataframe and model params for regression.
 	Need output from get_epochs_for_TFR_regression() as input.
 	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
@@ -479,11 +479,11 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 	
 	#mne.set_log_level('WARNING')
-	demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
+	#demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
 	
-	if global_model: #read global fit from Michael to get demo info
+	#if global_model: #read global fit from Michael to get demo info
 
-		global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+	#	global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 		# global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
 		# for i in range(len(global_model_df)):
@@ -496,36 +496,36 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 	for s, subject in enumerate(subjects):
 		
 		#get subject's age
-		if not global_model: 
+		if global_model is not None: 
 			try: 
 				age = demographic[demographic['lunaid']==subject]['age'].values[0]
 			except:
 				age = np.nan # no age info...??? 
 
-		if global_model:
+		if global_model is not None:
 			try: 
 				age = demographic[demographic['lunaid']==subject]['age'].values[0] ## no age in csv?? ask Michael
 			except:		
 				age = np.nan
 
 		## check if skip because of bad channels
-		try:
-			bad_channels, _ = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
-		except: #no ar 
-			bad_channels = np.array([], dtype='<U7')
-			#bad_trials = np.array([])
+		# try:
+		# 	bad_channels, _ = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
+		# except: #no ar 
+		# 	bad_channels = np.array([], dtype='<U7')
+		# 	#bad_trials = np.array([])
 
-		if chname in bad_channels:
-			continue #skip if bad channel 
+		# if chname in bad_channels:
+		# 	continue #skip if bad channel 
 
-		try:
-			baseline_bad_channels, _ = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
-		except: #no autoreject record 
-			baseline_bad_channels = np.array([], dtype='<U7')
-			#baseline_bad_trials = np.array([])
+		# try:
+		# 	baseline_bad_channels, _ = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
+		# except: #no autoreject record 
+		# 	baseline_bad_channels = np.array([], dtype='<U7')
+		# 	#baseline_bad_trials = np.array([])
 
-		if chname in baseline_bad_channels:
-			continue #skip if bad channel 	
+		# if chname in baseline_bad_channels:
+		# 	continue #skip if bad channel 	
 
 		# create epoch with one channel of data
 		#e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
@@ -576,7 +576,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_r
 
 			#get PE model parameters from individual model fit
 
-			if global_model:
+			if global_model is not None:
 				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max'].values
 				pe = np.delete(pe, drops, axis=0)
 
@@ -1107,6 +1107,8 @@ if __name__ == "__main__":
 
 	#### load epoch data, chn by chn, run tfr hz by hz, then run regression
 	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
+	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
+	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
 	for chname in channels_list[190:191]:
 
@@ -1116,7 +1118,7 @@ if __name__ == "__main__":
 		Baseline_Epoch = read_object(fn)
 
 		for hz in np.arange(2,4,2):
-			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
+			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	
 
 
