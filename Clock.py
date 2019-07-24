@@ -23,8 +23,8 @@ from pymer4.models import Lm, Lmer
 from pymer4.utils import get_resource_path
 
 #mkae paths global
-datapath = '/data/backed_up/kahwang/Clock/'
-save_path='/data/backed_up/kahwang/Clock/'
+datapath =  '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
+save_path = '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
 
 def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
@@ -718,7 +718,8 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, glob
 					####----Model after discussion with Michael and Alex in Jan 2019----####
 					
 					if robust_baseline:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+						#formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+                                                formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
 					else:
 						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
 					
@@ -1103,38 +1104,22 @@ def get_mosaic_mask():
 
 if __name__ == "__main__":	
 	
+        data_dir='/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/Epoch_Data'
+        src_dir='/gpfs/group/mnh5174/default/Michael/Clock_MEG/Hwang_Clock'
+        
+        #### load epoch data, chn by chn, run tfr hz by hz, then run regression
+        channels_list = np.load('%s/channel_list.npy' % (src_dir)) 
+        demographic = pd.read_csv('%s/subinfo_db' % (src_dir), sep='\t')
+        global_model_df = pd.read_csv('%s/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv' % (src_dir))
+
+        for chname in channels_list[190:191]:
+
+                fn = '%s/fb_Epoch_ch%s' % (data_dir, chname)
+                fb_Epoch = read_object(fn)
+                fn = '%s/Baseline_Epoch_ch%s' % (data_dir, chname)
+                Baseline_Epoch = read_object(fn)
+
+                for hz in np.arange(2,4,2):
+                        Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, parameters='Pe')
 	
-
-	#### load epoch data, chn by chn, run tfr hz by hz, then run regression
-	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
-	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
-	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
-
-	for chname in channels_list[190:191]:
-
-		fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
-		fb_Epoch = read_object(fn)
-		fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
-		Baseline_Epoch = read_object(fn)
-
-		for hz in np.arange(2,4,2):
-			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, parameters='Pe')
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
