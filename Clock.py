@@ -1104,22 +1104,25 @@ def get_mosaic_mask():
 if __name__ == "__main__":	
 	
 	
-
+	chname = input()
+	string = "now running channel: %s" %chname
+	print(string)
 	#### load epoch data, chn by chn, run tfr hz by hz, then run regression
-	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
+	#channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
 	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
 	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
-	for chname in channels_list[190:191]:
+	#for chname in channels_list[190:191]:
 
-		fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
-		fb_Epoch = read_object(fn)
-		fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
-		Baseline_Epoch = read_object(fn)
+	fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
+	fb_Epoch = read_object(fn)
+	fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
+	Baseline_Epoch = read_object(fn)
 
-		for hz in np.arange(2,4,2):
-			Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, parameters='Pe')
-	
+	for hz in np.arange(2,62,2):
+		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
+
 
 
 

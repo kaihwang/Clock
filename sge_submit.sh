@@ -1,21 +1,18 @@
 #!/bin/bash
 
 #for SGE jobs
-SCRIPTS='/home/despoB/kaihwang/bin/Clock'
+SCRIPTS='/home/kahwang/bkh/bin/Clock/'
 
-cat ${SCRIPTS}/channels
+mkdir $SCRIPTS/tmp
 
 for ch in $(cat ${SCRIPTS}/channels); do
 
-	id=$(echo ${ch} | grep -oE [0-9]{4})
-	
-	sed "s/MEG0713/${ch}/g" < ${SCRIPTS}/run_indiv.sh > ~/tmp/tfreg_${id}.sh
+	echo "generaating script for channel $ch"
 
-	submit \
-	-s ~/tmp/tfreg_${id}.sh \
-	-f ${SCRIPTS}/fullfreqs \
-	-o ${SCRIPTS}/qsub.options
+	echo "echo ${ch} | python $SCRIPTS/Clock.py" > $SCRIPTS/tmp/$ch.sh
 
+	#INSERT YOUR SYSTEMS SUB, like
+	#qsub -V $SCRIPTS/tmp/$id.sh
 
 done
 
