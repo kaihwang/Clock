@@ -892,9 +892,9 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	# trials TFR time locked to response onset
 	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
 	# trials TFR time locked to feedback onset
-	regdatadir = datapath + 'Group/' 
-	freqs = np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
-	channels_list = np.load('/home/kahwang/Clock/channel_list.npy')
+	regdatadir = '/data/backed_up/kahwang/Group' #datapath + 'Group/' 
+	freqs = np.arange(2,62,2)#np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
+	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
 	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
 	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial', 'Intercept'] #, 'Trial'
@@ -993,9 +993,9 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 
 				#Sig_mask[param] = pmask
 				#param : pmask}
-
-
-		return Output, template, Sig_mask 
+			return Output, template, Sig_mask 
+		else	
+			return Output, template 
 
 def get_exampledata(data):
 	### get data to Michael to check Model fit
@@ -1129,16 +1129,29 @@ if __name__ == "__main__":
 
 	#### test single trial TFR conversion
 	#chname = raw_input()
-	chname='MEG0211'
+	#chname='MEG0211'
 	#hz=2
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-	#save_object(fb_Epoch, 'fb_Epoch_exampchan_hz2')
-	#save_object(Baseline_Epoch, 'Baseline_Epoch_exampchan_hz2')
-	#save_object(dl, 'dlexampchan_hz2')
+
+	##### To write out channel by channel epoch:
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+
+	for chname in channels_list:
+		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+		fn = 'Data/fb_Epoch_ch%s' %chname
+		save_object(fb_Epoch, fn)
+		fn = 'Data/Baseline_Epoch_ch%s' %chname
+		save_object(Baseline_Epoch, fn)
+		fn = 'Data/dl_ch%s' %chname
+		save_object(dl, fn)
+	
+	#### read chn by chn epoch then do TFR regression:	
+
+
 	#fullfreqs = np.logspace(*np.log10([2, 50]), num=20)
 	#for hz in np.arange(2,62,2):
-	hz=2
-	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, parameters='Pe')
+	#hz=2
+		#Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+	#	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
 	#save_object(Feedbackdata, 'Feedbackdata_exampchan_hz2_inDict')
 
 	#Feedbackdata = read_object('Feedbackdata_exampchan_hz2_inDict')
