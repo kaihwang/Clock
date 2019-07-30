@@ -883,7 +883,7 @@ def run_TFR_regression(chname, hz):
 	#RTdata = TFR_regression(rt_Epoch, Baseline_Epoch, chname, hz, 'RT', do_reg = True, parameters='Value')
 
 
-def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
+def compile_group_reg(trial_type = 'feedback', model= 'fullmodel', fdr_correction = True):
 	''' assemble regression results freq by freq, channel by channel...'''
 
 	### load gorup power ave epoch template
@@ -892,16 +892,22 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 	# trials TFR time locked to response onset
 	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
 	# trials TFR time locked to feedback onset
-	regdatadir = datapath + 'Group/' 
-	freqs = np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
-	channels_list = np.load('/home/kahwang/Clock/channel_list.npy')
+	regdatadir = '/data/backed_up/kahwang/Group/' #datapath + 'Group/' 
+	freqs = np.arange(2,62,2)#np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
+	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy')
 	metrics = ['zvalue', 'pvalues']
-	parameters = ['Pe', 'Age', 'Age:Pe', 'Faces[T.Fear]', 'Faces[T.Happy]', 'Faces[T.Happy]:Pe', 'Faces[T.Fear]:Pe', 
-	'Faces[T.Happy]:Age','Faces[T.Fear]:Age', 'Faces[T.Happy]:Age:Pe', 'Faces[T.Fear]:Age:Pe', 'Trial', 'Intercept'] #, 'Trial'
+
+	if model =='fullmodel':
+		parameters = ['Age', 'Pe'] #['FacesFear', 'FacesHappy', 'Age', 'Trial', 'Pe', 'FacesFear:Age', 'FacesHappy:Age', 'FacesFear:Pe', 'FacesHappy:Pe' ] #, 'Trial'
+
+	if model == 'RobustBaseline':
+		parameters = ['Age', 'Rewarded'] #['FacesFear', 'FacesHappy', 'Age', 'Trial', 'Rewarded', 'FacesFear:Age', 'FacesHappy:Age', 'FacesFear:Rewarded', 'FacesHappy:Rewarded' ] #, 'Trial'
 
 	if trial_type == 'feedback':
 		template = mne.time_frequency.read_tfrs('/data/backed_up/kahwang/Clock/Group/group_feedback_power-tfr.h5')[0]
-
+		template.freqs = freqs
+		template.times = template.times[250:-1]
+		template.data = np.zeros((306, len(freqs), len(template.times)))
 		#setup var
 		Output ={}
 		for metric in metrics:
@@ -909,57 +915,26 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 			for param in parameters:
 				Output[metric][param] = np.zeros(template.data.shape)
 				
-		# Output = {
-		# 'zvalue': {
-		# 'Pe' : np.zeros(template.data.shape), 
-		# 'Age' : np.zeros(template.data.shape),
-		# 'Age:Pe' : np.zeros(template.data.shape),
-		# 'Faces[T.Fear]': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Age': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Age': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
-		# },
-		# 'pvalues': {
-		# 'Pe' : np.zeros(template.data.shape), 
-		# 'Age' : np.zeros(template.data.shape),
-		# 'Age:Pe' : np.zeros(template.data.shape),
-		# 'Faces[T.Fear]': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Age': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Age': np.zeros(template.data.shape),
-		# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape),
-		# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape),
-		# }}
-		#pedata = np.zeros(template.data.shape)
-		#agedata = np.zeros(template.data.shape)
-		#agexpedata = np.zeros(template.data.shape)
-
 		for ch in channels_list:	
 			pick_ch = mne.pick_channels(channels_list.tolist(),[ch]) #has to be list, annoying
 			
 			
 			for ih, hz in enumerate(freqs):
 				try:
-					fn = regdatadir + '%s_%shz_feedback_mlm.stats' %(ch, hz)
+					fn = regdatadir + '%s_%shz_feedback_%s_mlm.stats' %(ch , hz, model)
 					ds = read_object(fn)
 				except:	
 					continue
 
-				for it, t in enumerate(template.times[250:]): #no negative timepoint
+				for it, t in enumerate(template.times): #no negative timepoint
 					
 					# Intercept as mean power
-					template.data[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'parameters')]['Intercept']
+					template.data[pick_ch,ih,it] = ds[(str(ch), hz, t, 'parameters')]['(Intercept)'] 
 
 					for metric in metrics:
 						for param in parameters:
 
-							Output[metric][param][pick_ch,ih,it+250] = ds[(str(ch), hz, t, metric)][param]
+							Output[metric][param][pick_ch,ih,it] = ds[((str(ch), hz, t, metric))][param]
 							#pedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Pe']
 							#agedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age']
 							#agexpedata[pick_ch,ih,it+250] = ds[(str(ch), hz, t, 'zvalue')]['Age:Pe']
@@ -987,15 +962,19 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 			# }
 			
 			for param in parameters:
-				ps = Output['pvalues'][param][:,:,250:]
+				ps = Output['pvalues'][param][:,:,:]
 				ps[ps==0]=np.inf #missing values 
-				Sig_mask[param][:,:,250:] = np.reshape(multipletests(ps.flatten(),alpha=0.05,method='fdr_by')[0], ps.shape)
+				Sig_mask[param][:,:,:] = np.reshape(multipletests(ps.flatten(),alpha=0.05,method='fdr_by')[0], ps.shape)
 
 				#Sig_mask[param] = pmask
 				#param : pmask}
+			
+			return Output, template, Sig_mask 
+		
+		else:
+			return Output, template 	
 
 
-		return Output, template, Sig_mask 
 
 def get_exampledata(data):
 	### get data to Michael to check Model fit
@@ -1104,28 +1083,36 @@ def get_mosaic_mask():
 if __name__ == "__main__":	
 	
 	
-	chname = input()
-	string = "now running channel: %s" %chname
-	print(string)
-	#### load epoch data, chn by chn, run tfr hz by hz, then run regression
-	#channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
-	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
-	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
-	#for chname in channels_list[190:191]:
+	#### run TFR
+	# chname = input()
+	# string = "now running channel: %s" %chname
+	# print(string)
+	# #### load epoch data, chn by chn, run tfr hz by hz, then run regression
+	# #channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy') 
+	# demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
+	# global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
-	fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
-	fb_Epoch = read_object(fn)
-	fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
-	Baseline_Epoch = read_object(fn)
+	# #for chname in channels_list[190:191]:
 
-	for hz in np.arange(2,62,2):
-		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
-		Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
+	# fn = '/data/backed_up/kahwang/Epoch_Data/fb_Epoch_ch%s' %chname
+	# fb_Epoch = read_object(fn)
+	# fn = '/data/backed_up/kahwang/Epoch_Data/Baseline_Epoch_ch%s' %chname
+	# Baseline_Epoch = read_object(fn)
 
+	# for hz in np.arange(2,62,2):
+	# 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+	# 	Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')
 
+	#### Visualize
+	fullmodel_reg, avepower = compile_group_reg('feedback', model= 'fullmodel', fdr_correction = False)
+	baseline_reg, _ = compile_group_reg('feedback', model= 'RobustBaseline', fdr_correction = False)
 
+	# avepower.data = fullmodel_reg['zvalue']['Pe']
+	# avepower.plot_topo(vmin=-3, vmax=3)
 
+	# avepower.data = fullmodel_reg['zvalue']['Age']
+	# avepower.plot_topo(vmin=-3, vmax=3)
 
 
 
