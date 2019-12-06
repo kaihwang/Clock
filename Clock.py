@@ -181,8 +181,11 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 
 def get_dropped_trials_list(epoch):
 	'''mne_read_epoch will automatically drop trials that are too short without warning, so need to retrieve those tiral indx...'''
+	try:
+		drop_log = epoch[list(epoch.keys())[0]].drop_log
+	except:
+		drop_log =epoch.drop_log
 
-	drop_log = epoch[list(epoch.keys())[0]].drop_log
 	trial_list = []
 
 	# event lists start with "0 0 0", get rid of those
@@ -204,9 +207,16 @@ def get_dropped_trials_list(epoch):
 
 def get_epoch_trial_types(epoch):
 	''' get the order of face conditions'''
-	trig_codes = epoch[list(epoch.keys())[0]].events[:,2]
-	event =list(epoch.keys())[0]
-
+	
+	try:
+		trig_codes = epoch[list(epoch.keys())[0]].events[:,2]
+	except:
+		trig_codes = epoch.events[:,2]
+	try: 
+		event =list(epoch.keys())[0]
+	except:
+		event = 'feedback'
+	
 	Face_codes = {
 	'clock' : { 
 	'fear.face'   : np.array([47, 56]),
@@ -228,11 +238,11 @@ def get_epoch_trial_types(epoch):
 
 	out = ['NaN'] * len(trig_codes)
 	for i, trig in enumerate(trig_codes):
-		if any(trig == Face_codes[list(epoch.keys())[0]]['fear.face']):
+		if any(trig == Face_codes[event]['fear.face']):
 			out[i] = 'Fear'
-		elif any(trig == Face_codes[list(epoch.keys())[0]]['happy.face']):	
+		elif any(trig == Face_codes[event]['happy.face']):	
 			out[i] = 'Happy'
-		elif any(trig == Face_codes[list(epoch.keys())[0]]['scram.face']):	
+		elif any(trig == Face_codes[event]['scram.face']):	
 			out[i] = 'ASramble'
 		else:
 			pass
@@ -994,7 +1004,7 @@ def compile_group_reg(trial_type = 'feedback', fdr_correction = True):
 				#Sig_mask[param] = pmask
 				#param : pmask}
 			return Output, template, Sig_mask 
-		else	
+		else:
 			return Output, template 
 
 def get_exampledata(data):
@@ -1101,6 +1111,319 @@ def get_mosaic_mask():
 		np.savetxt(fn,neg+pos, fmt='%1d')
 
 
+def Evoke_regression(Event_Epoch, Baseline_Epoch, chname, demographic, global_model_df, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
+	''' compile evoke dataframe and model params for regression.
+	Need output from get_epochs_for_TFR_regression() as input.
+	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
+	Will do one channel a time (chname), and read model parameters from Michael's matlab output
+	'''
+
+	#subjects = [11345, 11346, 11347] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
+	#subjects = np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)
+	
+	subjects = list(Event_Epoch.keys())
+	#Event_types='clock'
+	#channels_list = np.load('/home/despoB/kaihwang/Clock/channel_list.npy')
+	#chname = 'MEG0713'
+	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	
+	#mne.set_log_level('WARNING')
+	#demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
+	
+	#if global_model: #read global fit from Michael to get demo info
+
+	#	global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+		# global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
+
+		# for i in range(len(global_model_df)):
+		# 	global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
+	
+		# global_model_df['id'] = global_model_df['id'].astype(int)	
+		# global_model_df['Rewarded'] = global_model_df['score_csv']>0	
+	
+	Data = dict()
+	for s, subject in enumerate(subjects):
+		
+		#get subject's age
+		if global_model is not None: 
+			try: 
+				age = demographic[demographic['lunaid']==subject]['age'].values[0]
+			except:
+				age = np.nan # no age info...??? 
+
+		if global_model is not None:
+			try: 
+				age = demographic[demographic['lunaid']==subject]['age'].values[0] ## no age in csv?? ask Michael
+			except:		
+				age = np.nan
+
+		
+		e = Event_Epoch[subject][Event_types]
+		b = Baseline_Epoch[subject]['ITI']
+		drops = get_dropped_trials_list(e)
+
+		# get list of emo face conditions
+		#faces = np.delete(get_epoch_trial_types(e), drops, axis = 0)
+		faces = get_epoch_trial_types(e)
+
+		# get trial by trial Evoked data
+		#event = 'clock'
+		Evoke_data = e.get_data()
+		Baseline_data = b.get_data()
+		times = e.times
+
+		## baseline correction
+		Evoke_data = Evoke_data - np.mean(Baseline_data)
+		print(subject)
+		
+		## extract model parameters and freq poer into dataframe
+		##in the case of testing for PE
+		if (parameters =='Pe') & (Event_types == 'feedback'):
+			
+			#get PE model parameters from new csv fitted to group data (per Michael)
+
+
+			#get PE model parameters from individual model fit
+
+			if global_model is not None:
+				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max'].values
+				pe = np.delete(pe, drops, axis=0)
+
+				Rewarded = global_model_df.loc[global_model_df['id'] == subject]['Rewarded'].values
+				Rewarded = np.delete(Rewarded, drops, axis=0)
+
+				run = global_model_df.loc[global_model_df['id'] == subject]['run'].values
+				run = np.delete(run, drops, axis=0)
+
+			else:
+				fn = "/data/backed_up/kahwang/Clock_behav/%s_pe.mat" %(subject)
+				pe = io.loadmat(fn)
+				#pe = np.delete(pe['pe'],drops, axis=0) #delete dropped trial entries
+				pe = np.max(pe,axis=1) #for prediction error take the max across time per trial
+		
+				
+
+			## create dataframe
+			for t, time in enumerate(times):  
+				#tidx = t+250
+
+				pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Vol', 'Pe', 'Rewarded', 'Age', 'Faces')) 
+				pdf.loc[:,'Vol'] = Evoke_data[:,:,t].squeeze() #TFR.data dimension is trial x channel x time
+				pdf.loc[:,'Trial'] = np.arange(Evoke_data[:,:,t].shape[0])+1  
+				pdf.loc[:,'Subject'] = str(subject)
+				try: 
+					pdf.loc[:,'Pe'] = pe
+				except:
+					msg = 'check number of trials in epoch and pe model for subject %s' %subject
+					print(msg)
+					pdf.loc[:,'Pe'] = np.nan
+				
+				try:
+					pdf.loc[:,'Rewarded'] = Rewarded
+				except:
+					msg = 'check number of trials in epoch and rewarded model for subject %s' %subject
+					print(msg)
+					pdf.loc[:,'Rewarded'] = np.nan
+
+				try: 
+					pdf.loc[:,'Run'] = run
+				except:
+					pdf.loc[:,'Run'] = np.nan
+				#pdf['Pe'].subtract(pdf['Pe'].mean()) #mean center PE
+				
+				#pdf['Trial'] = pdf['Trial'].astype('category')  #for testing linear trend of trial history can't set to category..?
+				pdf['Subject'] = pdf['Subject'].astype('category')
+				pdf['Age'] = age
+				pdf['Faces'] = faces
+
+				if s ==0: #first subject
+					Data[time] = pdf
+				else:
+					Data[time] = pd.concat([Data[time], pdf])
+
+
+		# ## Response lock analysis				
+		# elif (parameters =='Value') & (Event_types == 'RT'):
+		# 	#get PE model parameters
+		# 	fn = "/data/backed_up/kahwang/Clock_behav/%s_value.mat" %(subject)
+		# 	value = io.loadmat(fn)
+		# 	value = np.delete(value['value'],drops, axis=0)	
+		# 	value = np.max(value, axis=1) # take the max
+
+		# 	## create dataframe
+		# 	for f, freq in enumerate(TFR.freqs):
+		# 		for t, time in enumerate(TFR.times):  
+		# 			#tidx = t+250
+
+		# 			pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Pow', 'Value', 'Age', 'Faces')) 
+		# 			pdf.loc[:,'Pow'] = TFR.data[:,:,f,t].squeeze() #TFR.data dimension is trial x channel x freq x time
+		# 			pdf.loc[:,'Trial'] = np.arange(TFR.data[:,:,f,t].shape[0])+1  
+		# 			pdf.loc[:,'Subject'] = str(subject)
+		# 			pdf.loc[:,'Value'] = value
+		# 			#pdf['Value'].subtract(pdf['Value'].mean()) #mean center PE
+					
+		# 			#pdf['Trial'] = pdf['Trial'].astype('category')
+		# 			pdf['Subject'] = pdf['Subject'].astype('category')
+		# 			pdf['Age'] = age
+		# 			pdf['Faces'] = faces
+
+		# 			if s ==0: #first subject
+		# 				Data[(freq,time)] = pdf
+		# 			else:
+		# 				Data[(freq,time)] = pd.concat([Data[(freq,time)], pdf])				
+		
+
+		# ##in the case of testing for value function		
+		# elif (parameters =='Value') & (Event_types == 'clock'):
+		# 	# get value model parameters
+		# 	fn = "/data/backed_up/kahwang/Clock_behav/%s_value.mat" %(subject)
+		# 	value = io.loadmat(fn)
+		# 	value = np.delete(value['value'],drops, axis=0)				
+
+		# 	for f, freq in enumerate(TFR.freqs):
+		# 		for t in range(np.shape(TFR.data)[0]): #loop through trials
+		# 			pdf = pd.DataFrame(columns=('Subject', 'Trial', 'Time', 'Pow', 'Value', 'Age', 'Faces')) 
+		# 			pdf.loc[:,'Pow'] = signal.decimate(TFR.data[t,:,f,251:].squeeze(),25) #TFR.data[t,:,f,251:].squeeze()
+		# 			pdf.loc[:,'Trial'] = t+1
+		# 			pdf.loc[:,'Subject'] = str(subject)
+		# 			pdf.loc[:,'Value'] = value[t,]  #.repeat(25)  # should we upsample value function, which was 100ms resolution to 4ms, or shouuld we downsample TFR?
+		# 			pdf.loc[:,'Time'] = np.arange(value[t,].shape[0])+1
+		# 			#pdf['Value'].subtract(pdf['Value'].mean())
+		# 			#pdf['Trial'] = pdf['Trial'].astype('category')
+		# 			pdf['Subject'] = pdf['Subject'].astype('category')
+		# 			pdf['Age'] = age
+		# 			pdf['Faces'] = faces[t]
+
+		# 			if s ==0: #first subject
+		# 				Data[(freq)] = pdf
+		# 			else:
+		# 				Data[(freq)] = pd.concat([Data[(freq)], pdf])	
+		else:
+			print('something wrong with parameter or event input, can only do clock if testing value funciton, feedback if testing Pe')
+			return				
+						
+
+	## Regression
+	if do_reg:
+		if (parameters =='Pe') & (Event_types == 'feedback'):
+			RegStats = dict()
+			
+			for freq in [freqs]:
+				for time in times[250:]:  #skip baseline
+					Data[(freq,time)] = Data[(freq,time)].dropna()
+					Data[(freq,time)]['Rewarded'] = Data[(freq,time)]['Rewarded'].astype(int)
+					#for some reason getting inf, get rid of outliers, and look into this later
+					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
+					#Data[(freq,time)]['Pe'].subtract(Data[(freq,time)]['Pe'].mean()) #grand mean centering
+					#Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
+					Data[(freq,time)]['Pe'] = zscore(Data[(freq,time)]['Pe'])
+					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
+					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
+					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']!=-np.inf]  # account for 0 power
+					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']>-300] 
+
+					####----Model after discussion with Michael and Alex in Jan 2019----####
+					
+					if robust_baseline:
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+					else:
+						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+					
+					#vcf = {"Run": "0+C(Run)"}
+					#groups = Data[(freq,time)]["Subject"].values	
+					#ref = "~Trial" 
+					#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
+
+					md = Lmer(formula ,data=Data[(freq,time)]) 
+					md_output = md.fit(REML=False)
+					
+					# model in lme4:
+					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
+					# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
+					
+
+					####----Model tested in 2018-----####
+					#### md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
+					#### this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
+					#### note only full ML estimation will return AIC
+					
+					RegStats[(chname, freq, time, 'parameters')] = md_output['Estimate'] #md.params.copy()
+					RegStats[(chname, freq, time, 'zvalue')] = md_output['T-stat']
+					RegStats[(chname, freq, time, 'llf')] = md.logLike
+					RegStats[(chname, freq, time, 'pvalues')] = md_output['P-val'] 
+					RegStats[(chname, freq, time, '2.5_ci')] = md_output['2.5_ci']
+					RegStats[(chname, freq, time, '97.5_ci')] = md_output['97.5_ci']
+					RegStats[(chname, freq, time, 'aic')] = md.AIC
+
+				if robust_baseline:	
+					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_RobustBaseline' + '_mlm.stats'		
+				if not robust_baseline:
+					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_fullmodel' + '_mlm.stats'	
+				save_object(RegStats, fn)
+		
+		# if (parameters =='Value') & (Event_types == 'clock'):
+		# 	RegStats = dict()
+
+		# 	for freq in [freqs]:
+		# 		Data[(freq)] = Data[(freq)].dropna()
+		# 		#Data[(freq)]=Data[(freq)][Data[(freq)]['Pow']<300] 
+		# 		Data[(freq)]=Data[(freq)][Data[(freq)]['Value']!=0]
+		# 		Data[(freq)]['Value'].subtract(Data[(freq)]['Value'].mean()) #grand mean centering
+		# 		Data[(freq)]['Age'].subtract(Data[(freq)]['Age'].mean())
+
+		# 		#vcf = {"Trial": "0+C(Trial)"} #fit nested random effect for trial, but takes FOREVER to run....
+		# 		#,vc_formula = vcf 
+		# 		md = smf.mixedlm("Pow ~ Trial + Value + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq)], groups=Data[(freq)]["Subject"], re_formula="~Value ").fit(reml=False)
+
+		# 		RegStats[(chname, freq, 'parameters')] = md.params.copy()
+		# 		RegStats[(chname, freq, 'zvalue')] = md.tvalues.copy()
+		# 		RegStats[(chname, freq, 'llf')] = md.llf.copy()
+		# 		RegStats[(chname, freq, 'pvalues')] = md.pvalues.copy()
+		# 		RegStats[(chname, freq, 'conf_int')] = md.conf_int().copy()
+		# 		RegStats[(chname, freq, 'aic')] = md.aic
+
+		# 		fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+		# 		save_object(RegStats, fn)
+
+
+		# if (parameters =='Value') & (Event_types == 'RT'):
+		# 	RegStats = dict()
+
+		# 	for freq in [freqs]:
+		# 		for time in times:
+		# 			Data[(freq,time)] = Data[(freq,time)].dropna()
+		# 			#Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pow']<300]
+		# 			Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Value']!=0]
+		# 			Data[(freq,time)]['Value'].subtract(Data[(freq,time)]['Value'].mean()) #grand mean centering
+		# 			Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
+
+		# 			md = smf.mixedlm("Pow ~ Trial + Value + Age + Age*Value + Faces + Faces*Age*Value + Faces*Value ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Value").fit(reml=False)
+
+		# 			RegStats[(chname, freq, time, 'parameters')] = md.params.copy()
+		# 			RegStats[(chname, freq, time, 'zvalue')] = md.tvalues.copy()
+		# 			RegStats[(chname, freq, time, 'llf')] = md.llf.copy()
+		# 			RegStats[(chname, freq, time, 'pvalues')] = md.pvalues.copy()
+		# 			RegStats[(chname, freq, time, 'conf_int')] = md.conf_int().copy()
+		# 			RegStats[(chname, freq, time, 'aic')] = md.aic
+
+		# 		fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_mlm.stats'		
+		# 		save_object(RegStats, fn)
+
+		return RegStats
+	
+	else:	
+		return Data		
+	
+	#left over
+	#fn = '/home/despoB/kaihwang/Clock/Group/' + chname + '_clock' + '_tfr'
+	#save_object(Data, fn)		
+
+	### plot to look at distribution
+	#%matplotlib qt
+	#g=sns.jointplot('Pow','Pe',data=D])   
+
+
+
 if __name__ == "__main__":	
 	
 	#### run indiv subject pipeline
@@ -1133,16 +1456,16 @@ if __name__ == "__main__":
 	#hz=2
 
 	##### To write out channel by channel epoch:
-	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+	# channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
-	for chname in channels_list:
-		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-		fn = 'Data/fb_Epoch_ch%s' %chname
-		save_object(fb_Epoch, fn)
-		fn = 'Data/Baseline_Epoch_ch%s' %chname
-		save_object(Baseline_Epoch, fn)
-		fn = 'Data/dl_ch%s' %chname
-		save_object(dl, fn)
+	# for chname in channels_list:
+	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	# 	fn = 'Data/fb_Epoch_ch%s' %chname
+	# 	save_object(fb_Epoch, fn)
+	# 	fn = 'Data/Baseline_Epoch_ch%s' %chname
+	# 	save_object(Baseline_Epoch, fn)
+	# 	fn = 'Data/dl_ch%s' %chname
+	# 	save_object(dl, fn)
 	
 	#### read chn by chn epoch then do TFR regression:	
 
@@ -1207,9 +1530,17 @@ if __name__ == "__main__":
 
 
 
+	#### Restart in Nov 2019, try to compile evoke response. Run model on evoke data first before TFR. The purpose is to get a sense if there is any signal varying with model parm. Specifically rewarded vs unrewarded. 
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
+	#for chname in channels_list[0]:
+	chname = channels_list[0]
+	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 
+	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
+	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
+	Feedbackdata = Evoke_regression(fb_Epoch, Baseline_Epoch, chname, demographic, global_model_df, 'feedback', do_reg = False, global_model = True, robust_baseline = True, parameters='Pe')
 
 
 
