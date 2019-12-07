@@ -1318,6 +1318,7 @@ def Evoke_regression(Event_Epoch, Baseline_Epoch, chname, demographic, global_mo
 				Data[time]['Pe'] = zscore(Data[time]['Pe'])
 				Data[time]['Age'] = zscore(Data[time]['Age'])
 				Data[time]['Trial'] = zscore(Data[time]['Trial'])
+				Data[time]['Vol'] = Data[time]['Vol'] *1e12 # otherwise data poorly scaled.
 				# Data[time] = Data[time].loc[Data[time]['Vol']!=-np.inf]  # account for 0 power
 				# Data[time] = Data[time].loc[Data[time]['Vol']>-300] 
 
