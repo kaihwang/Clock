@@ -1307,59 +1307,58 @@ def Evoke_regression(Event_Epoch, Baseline_Epoch, chname, demographic, global_mo
 	if do_reg:
 		if (parameters =='Pe') & (Event_types == 'feedback'):
 			RegStats = dict()
-			
-			for freq in [freqs]:
-				for time in times[250:]:  #skip baseline
-					Data[(freq,time)] = Data[(freq,time)].dropna()
-					Data[(freq,time)]['Rewarded'] = Data[(freq,time)]['Rewarded'].astype(int)
-					#for some reason getting inf, get rid of outliers, and look into this later
-					Data[(freq,time)]=Data[(freq,time)][Data[(freq,time)]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
-					#Data[(freq,time)]['Pe'].subtract(Data[(freq,time)]['Pe'].mean()) #grand mean centering
-					#Data[(freq,time)]['Age'].subtract(Data[(freq,time)]['Age'].mean())
-					Data[(freq,time)]['Pe'] = zscore(Data[(freq,time)]['Pe'])
-					Data[(freq,time)]['Age'] = zscore(Data[(freq,time)]['Age'])
-					Data[(freq,time)]['Trial'] = zscore(Data[(freq,time)]['Trial'])
-					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']!=-np.inf]  # account for 0 power
-					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']>-300] 
+				
+			for time in times[250:]:  #skip baseline
+				Data[time] = Data[time].dropna()
+				Data[time]['Rewarded'] = Data[time]['Rewarded'].astype(int)
+				#for some reason getting inf, get rid of outliers, and look into this later
+				Data[time]=Data[time][Data[time]['Pe']!=0] #remove first 3 trials whith no behav parameters (0)
+				#Data[time]['Pe'].subtract(Data[time]['Pe'].mean()) #grand mean centering
+				#Data[time]['Age'].subtract(Data[time]['Age'].mean())
+				Data[time]['Pe'] = zscore(Data[time]['Pe'])
+				Data[time]['Age'] = zscore(Data[time]['Age'])
+				Data[time]['Trial'] = zscore(Data[time]['Trial'])
+				# Data[time] = Data[time].loc[Data[time]['Vol']!=-np.inf]  # account for 0 power
+				# Data[time] = Data[time].loc[Data[time]['Vol']>-300] 
 
-					####----Model after discussion with Michael and Alex in Jan 2019----####
-					
-					if robust_baseline:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
-					else:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
-					
-					#vcf = {"Run": "0+C(Run)"}
-					#groups = Data[(freq,time)]["Subject"].values	
-					#ref = "~Trial" 
-					#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
+				####----Model after discussion with Michael and Alex in Jan 2019----####
+				
+				if robust_baseline:
+					formula = "Vol ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
+				else:
+					formula = "Vol ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+				
+				#vcf = {"Run": "0+C(Run)"}
+				#groups = Data[(freq,time)]["Subject"].values	
+				#ref = "~Trial" 
+				#md = sm.MixedLM.from_formula(formula = formula, data = Data[(freq,time)], vc_formula = vcf, groups = "Subject", re_formula = ref).fit(reml=False)
 
-					md = Lmer(formula ,data=Data[(freq,time)]) 
-					md_output = md.fit(REML=False)
-					
-					# model in lme4:
-					# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
-					# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
-					
+				md = Lmer(formula ,data=Data[time]) 
+				md_output = md.fit(REML=False)
+				
+				# model in lme4:
+				# robust_baseline <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Rewarded * Faces + (1 + Trial_z | Subject/Run), dataset)
+				# pe_basic <- lmer(Pow_dB ~ 1 + Faces * Age_z + Trial_z + Pe_z * Faces + (1 + Trial_z | Subject/Run), dataset)	
+				
 
-					####----Model tested in 2018-----####
-					#### md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
-					#### this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
-					#### note only full ML estimation will return AIC
-					
-					RegStats[(chname, freq, time, 'parameters')] = md_output['Estimate'] #md.params.copy()
-					RegStats[(chname, freq, time, 'zvalue')] = md_output['T-stat']
-					RegStats[(chname, freq, time, 'llf')] = md.logLike
-					RegStats[(chname, freq, time, 'pvalues')] = md_output['P-val'] 
-					RegStats[(chname, freq, time, '2.5_ci')] = md_output['2.5_ci']
-					RegStats[(chname, freq, time, '97.5_ci')] = md_output['97.5_ci']
-					RegStats[(chname, freq, time, 'aic')] = md.AIC
+				####----Model tested in 2018-----####
+				#### md = smf.mixedlm("Pow ~ Trial + Pe + Age + Age*Pe + Faces + Faces*Age*Pe + Faces*Pe ", Data[(freq,time)], groups=Data[(freq,time)]["Subject"], re_formula="~Pe  ").fit(reml=False)
+				#### this is equivalent to this in R's lme4: Pow ~ 1 + Pe + Age + Age*pe + Faces + Faces*Pe + Faces*Age*Pe + (1+Pe | Subject)
+				#### note only full ML estimation will return AIC
+				
+				RegStats[(chname, time, 'parameters')] = md_output['Estimate'] #md.params.copy()
+				RegStats[(chname, time, 'zvalue')] = md_output['T-stat']
+				RegStats[(chname, time, 'llf')] = md.logLike
+				RegStats[(chname, time, 'pvalues')] = md_output['P-val'] 
+				RegStats[(chname, time, '2.5_ci')] = md_output['2.5_ci']
+				RegStats[(chname, time, '97.5_ci')] = md_output['97.5_ci']
+				RegStats[(chname, time, 'aic')] = md.AIC
 
-				if robust_baseline:	
-					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_RobustBaseline' + '_mlm.stats'		
-				if not robust_baseline:
-					fn = datapath + '/Group/' + chname + '_' + str(freqs) + 'hz_' + Event_types + '_fullmodel' + '_mlm.stats'	
-				save_object(RegStats, fn)
+			if robust_baseline:	
+				fn = datapath + '/Group/' + chname + '_Evoke_' + Event_types + '_RobustBaseline' + '_mlm.stats'		
+			if not robust_baseline:
+				fn = datapath + '/Group/' + chname + '_Evoke_' + Event_types + '_fullmodel' + '_mlm.stats'	
+			save_object(RegStats, fn)
 		
 		# if (parameters =='Value') & (Event_types == 'clock'):
 		# 	RegStats = dict()
@@ -1533,15 +1532,16 @@ if __name__ == "__main__":
 	#### Restart in Nov 2019, try to compile evoke response. Run model on evoke data first before TFR. The purpose is to get a sense if there is any signal varying with model parm. Specifically rewarded vs unrewarded. 
 	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
-	#for chname in channels_list[0]:
-	chname = channels_list[0]
-	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	for chname in channels_list:
+		#chname = channels_list[0]
+		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 
-	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
-	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+		demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
+		global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
-	Feedbackdata = Evoke_regression(fb_Epoch, Baseline_Epoch, chname, demographic, global_model_df, 'feedback', do_reg = False, global_model = True, robust_baseline = True, parameters='Pe')
+		Feedbackdata = Evoke_regression(fb_Epoch, Baseline_Epoch, chname, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
 
+	#save_object(Feedbackdata, 'Feedbackdata_exampchan_evoke_inDict')
 
 
 
