@@ -1424,6 +1424,83 @@ def Evoke_regression(Event_Epoch, Baseline_Epoch, chname, demographic, global_mo
 
 
 
+def compile_evoke_reg(trial_type = 'feedback'):
+	''' assemble regression results for evoke reg, channel by channel...'''
+
+	### load gorup power ave epoch template
+	# trials TFR time locked to clock onset
+	#clock_power = mne.time_frequency.read_tfrs('Data/group_clock_power-tfr.h5')
+	# trials TFR time locked to response onset
+	#RT_power = mne.time_frequency.read_tfrs('Data/group_RT_power-tfr.h5')
+	# trials TFR time locked to feedback onset
+	regdatadir = '/data/backed_up/kahwang/Clock/Group/' #datapath + 'Group/' 
+	freqs = np.arange(2,62,2)#np.loadtxt('/home/kahwang/bin/Clock/fullfreqs')
+	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy')
+	metrics = ['zvalue', 'pvalues', 'parameters']
+	parameters = ['(Intercept)','FacesFear', 'FacesHappy', 'Age', 'Trial', 'Rewarded', 'FacesFear:Age', 'FacesHappy:Age', 'FacesFear:Rewarded', 'FacesHappy:Rewarded']
+
+	if trial_type == 'feedback':
+		template = read_object('//home/kahwang/bin/Clock/ave_evoke_template')#[0]
+
+		#setup var
+		Output ={}
+		for metric in metrics:
+			Output[metric]={}
+			for param in parameters:
+				Output[metric][param] = np.zeros(template.data.shape)
+				
+		for ch in channels_list:	
+			pick_ch = mne.pick_channels(channels_list.tolist(),[ch]) #has to be list, annoying
+			
+			try:
+				fn = regdatadir + '%s_Evoke_feedback_RobustBaseline_mlm.stats' %(ch)
+				ds = read_object(fn)
+			except:	
+				continue
+
+			for it, t in enumerate(template.times[250:]): #no negative timepoint
+				
+				# Intercept as mean power
+				for metric in metrics:
+					for param in parameters:
+
+						Output[metric][param][pick_ch,it+250] = ds[(str(ch), t, metric)][param]
+
+							
+		# FRD correction to create significant mask	
+		# if fdr_correction:
+		# 	Sig_mask = {}
+
+		# 	for param in parameters:
+		# 		Sig_mask[param] = np.zeros(template.data.shape)==1
+			
+		# 	# Sig_mask = {
+		# 	# 'Pe' : np.zeros(template.data.shape)==1, 
+		# 	# 'Age' : np.zeros(template.data.shape)==1,
+		# 	# 'Age:Pe' : np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Fear]': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Happy]': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Happy]:Pe': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Fear]:Pe': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Happy]:Age': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Fear]:Age': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Happy]:Age:Pe': np.zeros(template.data.shape)==1,
+		# 	# 'Faces[T.Fear]:Age:Pe': np.zeros(template.data.shape)==1
+		# 	# }
+			
+		# 	for param in parameters:
+		# 		ps = Output['pvalues'][param][:,:,250:]
+		# 		ps[ps==0]=np.inf #missing values 
+		# 		Sig_mask[param][:,:,250:] = np.reshape(multipletests(ps.flatten(),alpha=0.05,method='fdr_by')[0], ps.shape)
+
+		# 		#Sig_mask[param] = pmask
+		# 		#param : pmask}
+		# 	return Output, template, Sig_mask 
+		# else:
+		return Output, template 
+
+
+
 if __name__ == "__main__":	
 	
 	#### run indiv subject pipeline
@@ -1531,25 +1608,48 @@ if __name__ == "__main__":
 
 
 	#### Restart in Nov 2019, try to compile evoke response. Run model on evoke data first before TFR. The purpose is to get a sense if there is any signal varying with model parm. Specifically rewarded vs unrewarded. 
-	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+	# channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
-	for chname in channels_list:
-		#chname = channels_list[0]
-		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	# for chname in channels_list:
+	# 	#chname = channels_list[0]
+	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
 
-		demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
-		global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+	# 	demographic = pd.read_csv('/data/backed_up/kahwang/bin/Clock/subinfo_db', sep='\t')
+	# 	global_model_df = pd.read_csv('/data/backed_up/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
 
-		Feedbackdata = Evoke_regression(fb_Epoch, Baseline_Epoch, chname, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+	# 	Feedbackdata = Evoke_regression(fb_Epoch, Baseline_Epoch, chname, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
 
 	#save_object(Feedbackdata, 'Feedbackdata_exampchan_evoke_inDict')
 
 
+	### plot ave evoke
+	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
+	Event_types = 'feedback'
+	for s, subject in enumerate(subjects):
 
+		if s == 0:
+			e = raw_to_epoch(subject, [Event_types])
+			a = e[Event_types].apply_baseline((-1,-0)).average()
+			#e_sum = np.zeros(a.data.shape) 
+			e_sum = a.data
+		# create epoch with one channel of data
+		else:
+			e = raw_to_epoch(subject, [Event_types])
+			a = e[Event_types].apply_baseline((-1,-0)).average()
+			e_sum = e_sum + a.data
 
+	e_ave = a.copy()
+	#e_ave.nave = s+1
+	e_ave.data = e_sum / (s+1)
+	e_ave.plot_topo()
 
+	### get group evoke
 
-
-
-
-
+	evoke_reg, evoke_ave = compile_evoke_reg()
+	evoke_fit = evoke_ave.copy()
+	evoke_fit.data = evoke_reg['zvalue']['FacesFear:Rewarded'] 
+	evoke_fit.crop(tmin=0, tmax=1)
+	evoke_fit.plot_topo(scalings={'grad':1, 'mag':1} ) 
+	evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], vmax=5, vmin=-5 )
+	template.plot_topomap(times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]) 
+	template.plot_topomap(times = [-0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.5, 0]) 
