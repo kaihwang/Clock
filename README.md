@@ -39,3 +39,6 @@ http://martinos.org/mne/stable/auto_tutorials/plot_stats_cluster_spatio_temporal
 
 ### Beamforming source solution example
 https://martinos.org/mne/stable/auto_examples/inverse/plot_lcmv_beamformer_volume.html#sphx-glr-auto-examples-inverse-plot-lcmv-beamformer-volume-py
+
+### group analysis project to the source
+https://www.frontiersin.org/articles/10.3389/fnins.2018.00006/full
