@@ -8,7 +8,7 @@ import mne as mne
 import os.path as op
 import glob
 from functools import partial
-#from autoreject import (LocalAutoRejectCV, compute_thresholds, set_matplotlib_defaults)
+from autoreject import compute_thresholds
 from mne.utils import check_random_state
 #from collections import defaultdict
 import sys
@@ -21,6 +21,7 @@ from statsmodels.sandbox.stats.multicomp import multipletests
 from scipy.stats.mstats import zscore
 from pymer4.models import Lm, Lmer
 from pymer4.utils import get_resource_path
+import os
 
 #mkae paths global
 datapath = '/data/backed_up/kahwang/Clock/'
@@ -83,11 +84,11 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 
 	Epoch_timings = {
 	'clock'   : [-1,4],
-	'feedback': [-1,.850],
+	'feedback': [-4, 1],
 	'ITI'     : [0,1],  #no baseline for ITI
 	'RT': [-1,1.15],
 	}
-
+	print(Event_types)
 	epochs = dict.fromkeys(Event_types)
 	epo = []
 
@@ -135,11 +136,13 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 					triggers = None
 
 			try:
+
 				e = mne.Epochs(raw, events=triggers, event_id=Event_codes[event],
 							tmin=Epoch_timings[event][0], tmax=Epoch_timings[event][1], reject=None, baseline = None, picks=channels_list, on_missing = 'ignore')
 
 				if any(raw.times[-1]/.004 < triggers[:,0]): #raw.times[-1]/.004 < triggers[-1,0]: #bizzare that preproc  cut off the end...??
 					e.drop(np.where(raw.times[-1]/.004 < triggers[:,0])[0]-1, reason='TOO SHORT') #e.drop(e.events.shape[0]-1, reason='TOO SHORT')
+
 				epo.append(e)
 
 			except:
@@ -185,12 +188,12 @@ def get_dropped_trials_list(epoch):
 		drop_log = epoch[list(epoch.keys())[0]].drop_log
 	except:
 		drop_log =epoch.drop_log
-
+	drop_log = list(drop_log)
 	trial_list = []
 
 	# event lists start with "0 0 0", get rid of those
 	for n in range(0,len(drop_log)):
-		if drop_log[n] == ['IGNORED']:
+		if drop_log[n] == ('IGNORED',):
 			trial_list.append(n)
 
 	for index in sorted(trial_list, reverse=True):
@@ -198,7 +201,7 @@ def get_dropped_trials_list(epoch):
 
 	drop_list = []
 	for n in range(0,len(drop_log)):
-		if drop_log[n]!=[]:  #get list of trials dropped for whatever reason, note rejected bad trials will also be here.
+		if drop_log[n]!=():  #get list of trials dropped for whatever reason, note rejected bad trials will also be here.
 			 drop_list.append(n)
 
 	drop_list = np.array(drop_list)
@@ -424,7 +427,7 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 	#subjects =[10891]
 	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
-	pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
+	pick_ch = mne.pick_channels(channels_list.tolist(), include=[chname])
 
 	Event_Epoch = {}
 	Baseline_Epoch = {}
@@ -835,8 +838,8 @@ def run_autoreject(subject):
 	n_interpolates = np.array([1, 4, 8, 16, 24, 32, 40])
 	consensus_percs = np.linspace(0, 1.0, 11)
 
-	Event_types = ['clock', 'feedback', 'ITI', 'RT']
-	e = raw_to_epoch(subject, Event_types, autoreject = False)
+	Event_types = ['feedback'] #'clock',  'RT' 'ITI'
+	e = raw_to_epoch(subject, Event_types)
 
 	for event in Event_types:
 		epochs = e[event]
@@ -1623,38 +1626,38 @@ if __name__ == "__main__":
 
 
 	### plot ave evoke
-	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
-	Event_types = 'feedback'
-	for s, subject in enumerate(subjects):
-
-		if s == 0:
-			e = raw_to_epoch(subject, [Event_types])
-			a = e[Event_types].apply_baseline((-1,-0)).average()
-			#e_sum = np.zeros(a.data.shape)
-			e_sum = a.data
-		# create epoch with one channel of data
-		else:
-			e = raw_to_epoch(subject, [Event_types])
-			a = e[Event_types].apply_baseline((-1,-0)).average()
-			e_sum = e_sum + a.data
-
-	e_ave = a.copy()
-	#e_ave.nave = s+1
-	e_ave.data = e_sum / (s+1)
-	e_ave.plot_topo()
-
-	### get group evoke
-
-	evoke_reg, evoke_ave = compile_evoke_reg()
-	evoke_fit = evoke_ave.copy()
-	evoke_fit.data = evoke_reg['zvalue']['Rewarded']
-	evoke_fit.crop(tmin=0, tmax=1)
-	#evoke_fit.plot_topo(scalings={'grad':1, 'mag':1} )
-	evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], vmax=5, vmin=-5 )
-	evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], vmax=5, vmin=-5, ch_type = 'grad' )
-		evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0, 0.05, 0.1], vmax=5, vmin=-5, ch_type = 'grad' )
-	# template.plot_topomap(times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6])
-	# template.plot_topomap(times = [-0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.5, 0])
+	# subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
+	# Event_types = 'feedback'
+	# for s, subject in enumerate(subjects):
+	#
+	# 	if s == 0:
+	# 		e = raw_to_epoch(subject, [Event_types])
+	# 		a = e[Event_types].apply_baseline((-1,-0)).average()
+	# 		#e_sum = np.zeros(a.data.shape)
+	# 		e_sum = a.data
+	# 	# create epoch with one channel of data
+	# 	else:
+	# 		e = raw_to_epoch(subject, [Event_types])
+	# 		a = e[Event_types].apply_baseline((-1,-0)).average()
+	# 		e_sum = e_sum + a.data
+	#
+	# e_ave = a.copy()
+	# #e_ave.nave = s+1
+	# e_ave.data = e_sum / (s+1)
+	# e_ave.plot_topo()
+	#
+	# ### get group evoke
+	#
+	# evoke_reg, evoke_ave = compile_evoke_reg()
+	# evoke_fit = evoke_ave.copy()
+	# evoke_fit.data = evoke_reg['zvalue']['Rewarded']
+	# evoke_fit.crop(tmin=0, tmax=1)
+	# #evoke_fit.plot_topo(scalings={'grad':1, 'mag':1} )
+	# evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], vmax=5, vmin=-5 )
+	# evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6], vmax=5, vmin=-5, ch_type = 'grad' )
+	# evoke_fit.plot_topomap(scalings={'grad':1, 'mag':1}, times = [0, 0.05, 0.1], vmax=5, vmin=-5, ch_type = 'grad' )
+	# # template.plot_topomap(times = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6])
+	# # template.plot_topomap(times = [-0.5, -0.45, -0.4, -0.35, -0.3, -0.25, -0.2, -0.15, -0.1, -0.5, 0])
 
 
 	#### Notes from Dec 2020
@@ -1668,6 +1671,58 @@ if __name__ == "__main__":
 	# compute inverse: https://mne.tools/stable/auto_tutorials/source-modeling/plot_mne_dspm_source_localization.html#sphx-glr-auto-tutorials-source-modeling-plot-mne-dspm-source-localization-py
 	# use freesurfer label https://mne.tools/stable/auto_examples/time_frequency/plot_compute_source_psd_epochs.html#sphx-glr-auto-examples-time-frequency-plot-compute-source-psd-epochs-py
 	# walk through https://mne.tools/stable/overview/cookbook.html
+
+	### Try to compile datframe CSV for Michael. Only loading evoke data
+	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+	outputpath = '/data/backed_up/kahwang/Clock/csv_data/'
+
+	for chname in [channels_list[0]]:
+		print(chname)
+		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+
+		times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
+
+		for itime, time in enumerate(times):
+
+			fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/' %(chname, time)
+
+			if not os.path.exists(fn):
+				os.makedirs(fn)
+
+			df = pd.DataFrame()
+			for s in fb_Epoch.keys():
+
+				Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
+				run = np.repeat(np.arange(1,9),63)
+				trials = np.arange(1,505)
+
+				# reject trials
+				run = np.delete(run, dl[s], axis=0)
+				trials = np.delete(trials, dl[s], axis=0)
+
+				try:
+					tdf = pd.DataFrame()
+					#for iTrial in np.arange(0,Total_trianN):
+					tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
+					tdf.loc[:, 'Subject'] = s
+					tdf.loc[:, 'Channel'] = chname
+					tdf.loc[:, 'Run'] = run
+					tdf.loc[:, 'Trial'] = trials
+					tdf.loc[:, 'Event'] = 'feedback'
+					tdf.loc[:, 'Time'] = time
+
+					df = pd.concat([df, tdf])
+
+				except:
+					fn = "check %s's trial number" %s
+					print(fn)
+					continue
+
+			fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
+			df.to_csv(fn)
+
+
+		#here "dl" are the bad trials list that we need to remove from analyses
 
 
 	## End of script
