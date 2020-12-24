@@ -27,6 +27,10 @@ import os
 datapath = '/data/backed_up/kahwang/Clock/'
 save_path='/data/backed_up/kahwang/Clock/'
 
+#notes on signal scale:
+# 'mag': Magnetometers (scaled by 1e+15 to plot in fT)
+# 'grad': Gradiometers (scaled by 1e+13 to plot in fT/cm)
+
 def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''short hand to load raw fif across runs, and return a combined epoch object
 	input: subject, Event_types
@@ -415,7 +419,7 @@ def read_object(filename):
 	return o
 
 
-def get_epochs_for_TFR_regression(chname, Event_types):
+def get_epochs_for_TFR_regression(chname, subjects, channels_list, Event_types):
 	''' get epoch and baseline epoch for TFR_regression
 	return trial epoch, baseline epoch, and list of drop trials
 	trying to speed up TFR_regression loop without the need of keep reading in data from disk
@@ -424,9 +428,9 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 	#subjects = [10637, 10638] #np.loadtxt('/home/despoB/kaihwang/bin/Clock/subjects', dtype=int)	 #[10637, 10638, 10662, 10711]
 	#subjects = [11335]
 
-	subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
+	#subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 	#subjects =[10891]
-	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+	#channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 	pick_ch = mne.pick_channels(channels_list.tolist(), include=[chname])
 
 	Event_Epoch = {}
@@ -435,24 +439,25 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 
 	for s, subject in enumerate(subjects):
 
-		#get bad trial and bad channel info
-		try:
-			bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
-		except: #no ar
-			bad_channels = np.array([], dtype='<U7')
-			bad_trials = np.array([])
-
-		if chname in bad_channels:
-			continue #skip if bad channel
-
-		try:
-			baseline_bad_channels, baseline_bad_trials = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
-		except: #no ar
-			baseline_bad_channels = np.array([], dtype='<U7')
-			baseline_bad_trials = np.array([])
-
-		if chname in baseline_bad_channels:
-			continue #skip if bad channel
+		#### for now not doing auto rejection
+		# #get bad trial and bad channel info
+		# try:
+		# 	bad_channels, bad_trials = get_bad_channels_and_trials(subject, Event_types, 0.3) #reject if thirty percent of data segment is bad
+		# except: #no ar
+		# 	bad_channels = np.array([], dtype='<U7')
+		# 	bad_trials = np.array([])
+		#
+		# if chname in bad_channels:
+		# 	continue #skip if bad channel
+		#
+		# try:
+		# 	baseline_bad_channels, baseline_bad_trials = get_bad_channels_and_trials(subject, 'ITI', 0.3) #reject if thirty percent of data segment is bad
+		# except: #no ar
+		# 	baseline_bad_channels = np.array([], dtype='<U7')
+		# 	baseline_bad_trials = np.array([])
+		#
+		# if chname in baseline_bad_channels:
+		# 	continue #skip if bad channel
 
 		# create epoch with one channel of data
 		e = raw_to_epoch(subject, [Event_types], channels_list = pick_ch)
@@ -462,8 +467,9 @@ def get_epochs_for_TFR_regression(chname, Event_types):
 			continue
 
 		#drop bad trials
-		e[Event_types].drop(bad_trials)
-		b['ITI'].drop(baseline_bad_trials)
+		#e[Event_types].drop(bad_trials)
+		#b['ITI'].drop(baseline_bad_trials)
+
 		#get list of trials dropped
 		drops = get_dropped_trials_list(e)
 
@@ -1672,57 +1678,60 @@ if __name__ == "__main__":
 	# use freesurfer label https://mne.tools/stable/auto_examples/time_frequency/plot_compute_source_psd_epochs.html#sphx-glr-auto-examples-time-frequency-plot-compute-source-psd-epochs-py
 	# walk through https://mne.tools/stable/overview/cookbook.html
 
-	### Try to compile datframe CSV for Michael. Only loading evoke data
-	channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
-	outputpath = '/data/backed_up/kahwang/Clock/csv_data/'
+	# ### Try to compile datframe CSV for Michael. Only loading evoke data
+	# channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+	# outputpath = '/data/backed_up/kahwang/Clock/csv_data/'
+	#
+	# for chname in [channels_list[0]]:
+	# 	print(chname)
+	# 	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
+	#
+	# 	times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
+	#
+	# 	for itime, time in enumerate(times):
+	#
+	# 		fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/' %(chname, time)
+	#
+	# 		if not os.path.exists(fn):
+	# 			os.makedirs(fn)
+	#
+	# 		df = pd.DataFrame()
+	# 		for s in fb_Epoch.keys():
+	#
+	# 			Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
+	# 			run = np.repeat(np.arange(1,9),63)
+	# 			trials = np.arange(1,505)
+	#
+	# 			# reject trials
+	# 			run = np.delete(run, dl[s], axis=0)
+	# 			trials = np.delete(trials, dl[s], axis=0)
+	#
+	# 			try:
+	# 				tdf = pd.DataFrame()
+	# 				#for iTrial in np.arange(0,Total_trianN):
+	# 				tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
+	# 				tdf.loc[:, 'Subject'] = s
+	# 				tdf.loc[:, 'Channel'] = chname
+	# 				tdf.loc[:, 'Run'] = run
+	# 				tdf.loc[:, 'Trial'] = trials
+	# 				tdf.loc[:, 'Event'] = 'feedback'
+	# 				tdf.loc[:, 'Time'] = time
+	#
+	# 				df = pd.concat([df, tdf])
+	#
+	# 			except:
+	# 				fn = "check %s's trial number" %s
+	# 				print(fn)
+	# 				continue
+	#
+	# 		fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
+	# 		df.to_csv(fn)
+	#
+	#
+	# 	#here "dl" are the bad trials list that we need to remove from analyses
 
-	for chname in [channels_list[0]]:
-		print(chname)
-		fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, 'feedback')
-
-		times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
-
-		for itime, time in enumerate(times):
-
-			fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/' %(chname, time)
-
-			if not os.path.exists(fn):
-				os.makedirs(fn)
-
-			df = pd.DataFrame()
-			for s in fb_Epoch.keys():
-
-				Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
-				run = np.repeat(np.arange(1,9),63)
-				trials = np.arange(1,505)
-
-				# reject trials
-				run = np.delete(run, dl[s], axis=0)
-				trials = np.delete(trials, dl[s], axis=0)
-
-				try:
-					tdf = pd.DataFrame()
-					#for iTrial in np.arange(0,Total_trianN):
-					tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
-					tdf.loc[:, 'Subject'] = s
-					tdf.loc[:, 'Channel'] = chname
-					tdf.loc[:, 'Run'] = run
-					tdf.loc[:, 'Trial'] = trials
-					tdf.loc[:, 'Event'] = 'feedback'
-					tdf.loc[:, 'Time'] = time
-
-					df = pd.concat([df, tdf])
-
-				except:
-					fn = "check %s's trial number" %s
-					print(fn)
-					continue
-
-			fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
-			df.to_csv(fn)
-
-
-		#here "dl" are the bad trials list that we need to remove from analyses
+	## Start work on doing inverse calculations
+	print('so hard')
 
 
 	## End of script
