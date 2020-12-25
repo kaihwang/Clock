@@ -15,24 +15,30 @@ if __name__ == "__main__":
     # these two files should be in the github repo
     channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
     subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
-    outputpath = '/data/backed_up/kahwang/Clock/csv_data/' #where to save the output
 
+    #where to save csv files
+    outputpath = '/data/backed_up/kahwang/Clock/csv_data/'
+
+    #loop through channels
     for chname in channels_list:
 
+        # more efficient to load chn by chn
     	print(chname)
     	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, subjects, channels_list, 'feedback')
+            #right now the baseline epoch are not used, but can do baseline correction later
 
     	times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
 
+        # different csv for each time pt
     	for itime, time in enumerate(times):
 
-    		fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/' %(chname, time)
-
+            fn = outputpath + 'ch_%s/time_%s/' %(chname, time)
     		if not os.path.exists(fn):
     			os.makedirs(fn)
 
     		df = pd.DataFrame()
-    		for s in fb_Epoch.keys():
+
+            for s in fb_Epoch.keys():
 
     			Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
     			run = np.repeat(np.arange(1,9),63)
@@ -60,5 +66,5 @@ if __name__ == "__main__":
     				print(fn)
     				continue
 
-    		fn = '/data/backed_up/kahwang/Clock/csv_data/ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
+    		fn = outputpath + 'ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
     		df.to_csv(fn)
