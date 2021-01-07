@@ -716,12 +716,19 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, glob
 					Data[(freq,time)] = Data[(freq,time)].loc[Data[(freq,time)]['Pow']>-300] 
 
 					####----Model after discussion with Michael and Alex in Jan 2019----####
-					
+
+                                        # MH 24Jul2019: Remove random (linear) slope of trial because of pre-stimulus baseline normalization. If pre-stim baseline is used to normalize Power, then
+                                        #   this should, as far as I can tell, substantially reduce or eliminate linear drifts in power across the run, let alone individual differences (random effect)
+                                        #   in the drift. We are getting a lot of singular fit messages because there is a 0 variance component on the trial slope. Although this does not invalidate the
+                                        #   parameter estimates, it does suggest we're fitting a model that is more complex than the data support. I've retained Trial as a fixed effect only to allow
+                                        #   for a sample-level drift term, even though this will probably be ~0, on average.
+                                        
 					if robust_baseline:
 						#formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (0 + Trial | Subject) + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
                                                 formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces + (1 | Subject/Run)"  #"Pow ~ Faces  + Age + Faces*Age + Trial + Rewarded + Rewarded*Faces"
 					else:
-						formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+						#formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (0 + Trial | Subject) + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
+                                                formula = "Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces + (1 | Subject/Run)" #"Pow ~ Faces  + Age + Faces*Age + Trial + Pe + Pe*Faces"
 					
 					#vcf = {"Run": "0+C(Run)"}
 					#groups = Data[(freq,time)]["Subject"].values	
@@ -1103,23 +1110,28 @@ def get_mosaic_mask():
 
 
 if __name__ == "__main__":	
-	
+
         data_dir='/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/Epoch_Data'
         src_dir='/gpfs/group/mnh5174/default/Michael/Clock_MEG/Hwang_Clock'
-        
+
+        chname = input()
+
+        string = "now running channel: %s" %chname
+        print(string)
+
+
         #### load epoch data, chn by chn, run tfr hz by hz, then run regression
-        channels_list = np.load('%s/channel_list.npy' % (src_dir)) 
+        #channels_list = np.load('%s/channel_list.npy' % (src_dir)) 
         demographic = pd.read_csv('%s/subinfo_db' % (src_dir), sep='\t')
         global_model_df = pd.read_csv('%s/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv' % (src_dir))
 
-        for chname in channels_list[190:191]:
+        #for chname in channels_list[190:191]:
+        
+        fn = '%s/fb_Epoch_ch%s' % (data_dir, chname)
+        fb_Epoch = read_object(fn)
+        fn = '%s/Baseline_Epoch_ch%s' % (data_dir, chname)
+        Baseline_Epoch = read_object(fn)
 
-                fn = '%s/fb_Epoch_ch%s' % (data_dir, chname)
-                fb_Epoch = read_object(fn)
-                fn = '%s/Baseline_Epoch_ch%s' % (data_dir, chname)
-                Baseline_Epoch = read_object(fn)
-
-                for hz in np.arange(2,4,2):
-                        Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, parameters='Pe')
-	
-
+        for hz in np.arange(2,62,2):
+                Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = True, parameters='Pe')
+                Feedbackdata = TFR_regression(fb_Epoch, Baseline_Epoch, chname, hz, demographic, global_model_df, 'feedback', do_reg = True, global_model = True, robust_baseline = False, parameters='Pe')

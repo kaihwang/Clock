@@ -1,21 +1,14 @@
 #!/bin/bash
 
 #for SGE jobs
-SCRIPTS='/home/despoB/kaihwang/bin/Clock'
+SCRIPTS='/gpfs/group/mnh5174/default/Michael/Clock_MEG/Hwang_Clock'
 
-cat ${SCRIPTS}/channels
+mkdir $SCRIPTS/tmp
 
 for ch in $(cat ${SCRIPTS}/channels); do
-
-	id=$(echo ${ch} | grep -oE [0-9]{4})
-	
-	sed "s/MEG0713/${ch}/g" < ${SCRIPTS}/run_indiv.sh > ~/tmp/tfreg_${id}.sh
-
-	submit \
-	-s ~/tmp/tfreg_${id}.sh \
-	-f ${SCRIPTS}/fullfreqs \
-	-o ${SCRIPTS}/qsub.options
-
+    
+    echo "submitting script for channel $ch"
+    qsub -v channel=$ch qsub_one_channel.bash
 
 done
 
