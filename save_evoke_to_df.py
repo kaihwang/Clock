@@ -13,11 +13,11 @@ save_path='/data/backed_up/kahwang/Clock/'
 if __name__ == "__main__":
 
     # these two files should be in the github repo
-    channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
-    subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
+    channels_list = np.load('/proj/mnhallqlab/projects/Clock_MEG/code/channel_list.npy')
+    subjects = np.loadtxt('/proj/mnhallqlab/projects/Clock_MEG/code/subjects', dtype=int)
 
     #where to save csv files
-    outputpath = '/data/backed_up/kahwang/Clock/csv_data/'
+    outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data/'
 
     #loop through channels
     for chname in channels_list:
