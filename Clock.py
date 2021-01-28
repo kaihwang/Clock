@@ -23,7 +23,7 @@ from pymer4.models import Lm, Lmer
 from pymer4.utils import get_resource_path
 import os
 
-#mkae paths global
+#make paths global
 datapath =  '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
 save_path = '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
 
