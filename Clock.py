@@ -1,4 +1,4 @@
-#### scripts to use MNE to analyze Clock MEG data, PSU version
+#### scripts to use MNE to analyze Clock MEG data, UNC edition
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -24,8 +24,8 @@ from pymer4.utils import get_resource_path
 import os
 
 #make paths global
-datapath =  '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
-save_path = '/gpfs/group/LiberalArts/default/mnh5174_collab/Michael/MEG_Clock/'
+datapath =  '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
+save_path = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 
 #notes on signal scale:
 # 'mag': Magnetometers (scaled by 1e+15 to plot in fT)
@@ -40,7 +40,6 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 	'''
 
 	#setup variables
-	#datapath = '/data/backed_up/kahwang/Clock/'
 
 	#Event_types = ['clock', 'feedback', 'ITI', 'RT']
 
@@ -481,7 +480,7 @@ def get_epochs_for_TFR_regression(chname, subjects, channels_list, Event_types):
 
 
 
-def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, global_model_df, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
+def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, Event_types, do_reg = True, global_model = True, robust_baseline = True, parameters ='Pe'):
 	''' compile TFR dataframe and model params for regression.
 	Need output from get_epochs_for_TFR_regression() as input.
 	Event_Epoch is a dict with each subjects trial epoch, Baseline_Epoch is the baseline epoch period.
@@ -498,12 +497,12 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, glob
 	#pick_ch = mne.pick_channels(channels_list.tolist(),[chname])
 
 	#mne.set_log_level('WARNING')
-	#demographic = pd.read_csv('/home/kahwang/bin/Clock/subinfo_db', sep='\t')
-	
-	#if global_model: #read global fit from Michael to get demo info
+	demographic = pd.read_csv('/proj/mnhallqlab/projects/Clock_MEG/code/subinfo_db', sep='\t')
 
-	#	global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
-		# global_model_df = pd.read_csv('/home/kahwang/bin/Clock/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
+	if global_model: #read global fit from Michael to get demo info
+
+		global_model_df = pd.read_csv('/proj/mnhallqlab/projects/Clock_MEG/code/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics_reorganized.csv')
+		# global_model_df = pd.read_csv('/proj/mnhallqlab/projects/Clock_MEG/code/mmclock_meg_decay_factorize_selective_psequate_fixedparams_meg_ffx_trial_statistics.csv')
 
 		# for i in range(len(global_model_df)):
 		# 	global_model_df.loc[i,'id'] = global_model_df.loc[i,'id'][0:5]
@@ -595,7 +594,7 @@ def TFR_regression(Event_Epoch, Baseline_Epoch, chname, freqs, demographic, glob
 
 			#get PE model parameters from individual model fit
 
-			if global_model is not None:
+			if global_model:
 				pe = global_model_df.loc[global_model_df['id'] == subject]['pe_max'].values
 				pe = np.delete(pe, drops, axis=0)
 

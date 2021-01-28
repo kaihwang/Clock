@@ -6,8 +6,8 @@ import mne as mne
 import os
 
 # global path to data
-datapath = '/data/backed_up/kahwang/Clock/'
-save_path='/data/backed_up/kahwang/Clock/'
+datapath = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
+save_path = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 
 
 if __name__ == "__main__":
