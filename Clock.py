@@ -1754,8 +1754,13 @@ if __name__ == "__main__":
 	#threshold = ['threshold', 'unthreshold']
 
 	for id, dat in enumerate(dataset):
-		terms = np.unique(dat.term)
-		times = np.unique(dat.t)
+		terms = dat.term.unique()
+		times = dat.t.unique()
+
+		# get rid of () and : from alex's dataframe, otherwise files cant be generated"
+		#dat.term = dat.term.str.replace('(', '_')
+		#dat.term = dat.term.str.replace(')', '_')
+		#dat.term = dat.term.str.replace(':', '_')
 
 		for term in terms:
 			df = dat.loc[dat.term==term]
@@ -1764,29 +1769,57 @@ if __name__ == "__main__":
 			n_ch = np.unique(dat['sensor']).shape[0] #306 channels
 			n_timepoint = np.unique(dat['t']).shape[0] #84 time points
 			data = np.zeros((n_ch,n_timepoint)) #channel by time
+			data_mask = np.zeros((n_ch,n_timepoint))
 
 			for index, row in df.iterrows():
-				if row['p, FDR-corrected'] != 'NS':
-					#print('yes')
-					ch = "MEG{:0>4d}".format(row['sensor'])
-					pick_ch = mne.pick_channels(template.ch_names,[ch])[0]
-					#time = row.t
-					tidx = np.where(times==row.t)[0][0]
-					data[pick_ch, tidx] = row.statistic
+				#print('yes')
 
+				# find channel
+				ch = "MEG{:0>4d}".format(row['sensor'])
+				pick_ch = mne.pick_channels(template.ch_names,[ch])[0]
+
+				# find time
+				tidx = np.where(times==row.t)[0][0]
+				data[pick_ch, tidx] = row.estimate
+
+				# mask of significant data points
+				if row['p, FDR-corrected'] != 'NS':
+					data_mask[pick_ch, tidx] = 1
+
+			# mask out insig data
+			vmax = np.percentile(data, 98)
+			data_mask = np.array(data_mask, dtype=bool)
+			data[data_mask==0] = 0
+
+			# create evoke object for plotting
 			info = mne.create_info(template.ch_names, ch_types=template.get_channel_types(), sfreq=20.8333333)
 			info['chs'] = template.info['chs']
-			evoked_array = mne.EvokedArray(data, info, tmin=min(rdf.t))
+			evoked_array = mne.EvokedArray(data, info, tmin=min(dat.t))
+
 			#evoked_array.plot_joint(picks='grad', times = evoked_array.times[np.arange(0,84,4)])
-			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(0,28,2)],ch_type='grad', colorbar = True, title= term+' threshold, -2.97:-1.72s', show = False)
-			f.savefig('AlexTopoPlots/' + dfilename[id] +'_' +term+'_threshold_-2.97to-1.72s_stat.png')
-			plt.close()
-			evoked_array.plot_topomap(times = evoked_array.times[np.arange(28,56,2)],ch_type='grad', colorbar = True,title= term+' threshold, -1.63:-.38s', show = False)
-			f.savefig('AlexTopoPlots/'+ dfilename[id]+'_' +term+'_threshold_-1.63to-.38s_stat.png')
-			plt.close()
-			evoked_array.plot_topomap(times = evoked_array.times[np.arange(56,84,2)],ch_type='grad', colorbar = True, title= term + ' threshold, -0.28:.96s', show = False)
-			f.savefig('AlexTopoPlots/'+ dfilename[id]+'_' +term+'_threshold_-0.28to0.96s_stat.png')
-			plt.close()
+			#sc=dict(eeg=1, grad=1, mag=1)
+			#sc=dict(marker='o', markerfacecolor='w', markeredgecolor='k', linewidth=0, markersize=7)
+			fn = term + '-2.97_to_-1.72s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(0,28,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-2.97_to_-1.72s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
+			fn = term + '-1.63_to_-.38s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(28,56,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-1.63_to_-.38s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
+			fn = term + '-0.38_to_.96s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(56,84,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-0.38_to_.96s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
 
 
 
