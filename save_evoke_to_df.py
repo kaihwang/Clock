@@ -9,7 +9,6 @@ import os
 datapath = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 save_path = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 
-
 if __name__ == "__main__":
 
     # these two files should be in the github repo
@@ -17,7 +16,7 @@ if __name__ == "__main__":
     subjects = np.loadtxt('/proj/mnhallqlab/projects/Clock_MEG/code/subjects', dtype=int)
 
     #where to save csv files
-    outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data/'
+    outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data_update/'
 
     #loop through channels
     for chname in channels_list:
@@ -25,7 +24,7 @@ if __name__ == "__main__":
         # more efficient to load chn by chn
     	print(chname)
     	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, subjects, channels_list, 'feedback')
-            #right now the baseline epoch are not used, but can do baseline correction later
+        #right now the baseline epoch are not used, but can do baseline correction later
 
     	times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
 
@@ -33,38 +32,40 @@ if __name__ == "__main__":
     	for itime, time in enumerate(times):
 
             fn = outputpath + 'ch_%s/time_%s/' %(chname, time)
-    		if not os.path.exists(fn):
-    			os.makedirs(fn)
+            if not os.path.exists(fn):
+                os.makedirs(fn)
 
-    		df = pd.DataFrame()
+            df = pd.DataFrame()
 
             for s in fb_Epoch.keys():
 
-    			Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
-    			run = np.repeat(np.arange(1,9),63)
-    			trials = np.arange(1,505)
+                Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
+                run = np.repeat(np.arange(1,9),63)
+                trials = np.arange(1,505)
 
-    			# reject trials
-    			run = np.delete(run, dl[s], axis=0)
-    			trials = np.delete(trials, dl[s], axis=0)
+    		# reject trials
+                if dl[s] != []:
+                    run = np.delete(run, dl[s], axis=0)
+                    trials = np.delete(trials, dl[s], axis=0)
 
-    			try:
-    				tdf = pd.DataFrame()
-    				#for iTrial in np.arange(0,Total_trianN):
-    				tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
-    				tdf.loc[:, 'Subject'] = s
-    				tdf.loc[:, 'Channel'] = chname
-    				tdf.loc[:, 'Run'] = run
-    				tdf.loc[:, 'Trial'] = trials
-    				tdf.loc[:, 'Event'] = 'feedback'
-    				tdf.loc[:, 'Time'] = time
+                try:
+                    tdf = pd.DataFrame()
+                    #for iTrial in np.arange(0,Total_trianN):
+                    tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
+                    tdf.loc[:, 'Subject'] = s
+                    tdf.loc[:, 'Channel'] = chname
+                    tdf.loc[:, 'Run'] = run
+                    tdf.loc[:, 'Trial'] = trials
+                    tdf.loc[:, 'Event'] = 'feedback'
+                    tdf.loc[:, 'Time'] = time
 
-    				df = pd.concat([df, tdf])
+                    df = pd.concat([df, tdf])
 
-    			except:
-    				fn = "check %s's trial number" %s
-    				print(fn)
-    				continue
+                except Exception as e:
+                    print(e)
+                    fn = "check %s's trial number" %s
+                    print(fn)
+                    continue
 
-    		fn = outputpath + 'ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
-    		df.to_csv(fn)
+            fn = outputpath + 'ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
+            df.to_csv(fn)
