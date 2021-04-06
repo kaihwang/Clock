@@ -23,6 +23,7 @@ if __name__ == "__main__":
     else:
         to_extract = [env_channel] #single channel extraction
 
+    extract_epoch='feedback'
     
     #where to save csv files
     outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data_update/'
@@ -32,12 +33,12 @@ if __name__ == "__main__":
 
         # more efficient to load chn by chn
     	print(chname)
-    	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, subjects, channels_list, 'feedback')
+    	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, subjects, channels_list, extract_epoch)
         #right now the baseline epoch are not used, but can do baseline correction later
 
     	print(dl)
         
-    	times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
+    	times = fb_Epoch[list(fb_Epoch.keys())[0]][extract_epoch].times
 
         # different csv for each time pt
     	for itime, time in enumerate(times):
@@ -50,7 +51,7 @@ if __name__ == "__main__":
 
             for s in fb_Epoch.keys():
 
-                Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
+                Total_trianN = fb_Epoch[s][extract_epoch].get_data().shape[0]
                 run = np.repeat(np.arange(1,9),63)
                 trials = np.arange(0,504)
 
@@ -62,12 +63,12 @@ if __name__ == "__main__":
                 try:
                     tdf = pd.DataFrame()
                     #for iTrial in np.arange(0,Total_trianN):
-                    tdf.loc[:, 'Signal'] = fb_Epoch[s]['feedback'].get_data()[:,:,itime].squeeze()
+                    tdf.loc[:, 'Signal'] = fb_Epoch[s][extract_epoch].get_data()[:,:,itime].squeeze()
                     tdf.loc[:, 'Subject'] = s
                     tdf.loc[:, 'Channel'] = chname
                     tdf.loc[:, 'Run'] = run
                     tdf.loc[:, 'Trial'] = trials + 1
-                    tdf.loc[:, 'Event'] = 'feedback'
+                    tdf.loc[:, 'Event'] = extract_epoch
                     tdf.loc[:, 'Time'] = time
 
                     df = pd.concat([df, tdf])
@@ -78,5 +79,5 @@ if __name__ == "__main__":
                     print(fn)
                     continue
 
-            fn = outputpath + 'ch_%s/time_%s/ch-%s_time-%s.csv' %(chname, time, chname, time)
+            fn = outputpath + 'ch_%s/time_%s/%s_ch-%s_time-%s.csv' %(chname, time, extract_epoch, chname, time)
             df.to_csv(fn)
