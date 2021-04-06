@@ -5,6 +5,9 @@ import pandas as pd
 import mne as mne
 import os
 
+env_channel=os.getenv('channel')
+
+
 # global path to data
 datapath = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 save_path = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
@@ -15,17 +18,25 @@ if __name__ == "__main__":
     channels_list = np.load('/proj/mnhallqlab/projects/Clock_MEG/code/channel_list.npy')
     subjects = np.loadtxt('/proj/mnhallqlab/projects/Clock_MEG/code/subjects', dtype=int)
 
+    if env_channel is None:
+        to_extract = channels_list
+    else:
+        to_extract = [env_channel] #single channel extraction
+
+    
     #where to save csv files
     outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data_update/'
 
     #loop through channels
-    for chname in channels_list:
+    for chname in to_extract:
 
         # more efficient to load chn by chn
     	print(chname)
     	fb_Epoch, Baseline_Epoch, dl = get_epochs_for_TFR_regression(chname, subjects, channels_list, 'feedback')
         #right now the baseline epoch are not used, but can do baseline correction later
 
+    	print(dl)
+        
     	times = fb_Epoch[list(fb_Epoch.keys())[0]]['feedback'].times
 
         # different csv for each time pt
@@ -41,10 +52,10 @@ if __name__ == "__main__":
 
                 Total_trianN = fb_Epoch[s]['feedback'].get_data().shape[0]
                 run = np.repeat(np.arange(1,9),63)
-                trials = np.arange(1,505)
+                trials = np.arange(0,504)
 
     		# reject trials
-                if dl[s] != []:
+                if dl[s].size > 0:
                     run = np.delete(run, dl[s], axis=0)
                     trials = np.delete(trials, dl[s], axis=0)
 
@@ -55,7 +66,7 @@ if __name__ == "__main__":
                     tdf.loc[:, 'Subject'] = s
                     tdf.loc[:, 'Channel'] = chname
                     tdf.loc[:, 'Run'] = run
-                    tdf.loc[:, 'Trial'] = trials
+                    tdf.loc[:, 'Trial'] = trials + 1
                     tdf.loc[:, 'Event'] = 'feedback'
                     tdf.loc[:, 'Time'] = time
 
