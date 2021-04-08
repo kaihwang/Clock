@@ -9,14 +9,26 @@ library(doParallel)
 #setwd("~/Data_Analysis/clock_analysis/meg/code")
 setwd("/proj/mnhallqlab/projects/Clock_MEG/code")
 
-compute_wavelet <- function(ts, time, dt=.004, dj=1/4, maxfreq=NULL, minfreq=NULL) {
+compute_wavelet <- function(ts, time, delta_t=.004, dj=1/4, maxfreq=NULL, minfreq=NULL, pad_tails=1) {
   max.scale <- ifelse(is.null(maxfreq), NULL, 1/minfreq)
-  s0 <- ifelse(is.null(maxfreq), 2*dt, 1/maxfreq)
+  s0 <- ifelse(is.null(maxfreq), 2*delta_t, 1/maxfreq)
+
+  if (pad_tails > 0) {
+    npad=ceiling(pad_tails/delta_t)
+    time_before <- seq(min(time) - npad*delta_t, min(time) - delta_t, by=delta_t)
+    signal_before <- rev(ts[1:npad])
+    time_after <- seq(max(time) + delta_t, max(time) + npad*delta_t, by=delta_t)
+    signal_after <- rev(ts[(length(ts) - npad + 1):length(ts)])
+    time <- c(time_before, time, time_after)
+    ts <- c(signal_before, ts, signal_after)
+  }
   
-  res <- wt(cbind(time, ts), dt=dt, s0=s0, max.scale=max.scale, dj=dj, do.sig=FALSE, pad=TRUE)
+  res <- wt(cbind(time, ts), dt=delta_t, s0=s0, max.scale=max.scale, dj=dj, do.sig=FALSE, pad=TRUE)
   odf <- data.table(time=time, t(res$power))
+  if (pad_tails > 0) { odf <- odf[(npad+1):(nrow(odf)-npad),] } #remove padding  
   setnames(odf, c("Time", paste0("f_", sprintf("%06.3f", 1/res$scale))))
   odf <- data.table::melt(odf, id.vars="Time", variable.name="Freq", value.name="Pow")
+
   return(odf)
 }
 
@@ -45,14 +57,16 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
   df <- df$get()
   df[, Channel:=NULL]
   df[, Event:=NULL] #all feedback for now
+  df[, Signal:=Signal*1e10] #scale up to reasonable level
   setkeyv(df, c("Subject", "Run", "Trial"))
   setorderv(df, c("Subject", "Run", "Trial", "Time")) #make sure we sort properly before subsampling
   
   #wavelet settings: .004s bins, 25
-  dt <- .004
-  freq <- 1/dt
-  minfreq <- 2
-  maxfreq <- 40
+  delta_t <- .004
+  freq <- 1/delta_t
+  minfreq <- 2 #Hz
+  maxfreq <- 80 #Hz
+  db_transform <- TRUE
   
   keys <- key(df)
 
@@ -71,11 +85,15 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
 
   ff <- foreach(thisdf=iter(splitdt), .noexport="splitdt", .packages=c("biwavelet", "data.table"), .export=c("subsample_dt", "compute_wavelet")) %dopar% {
     
-    timefreq_dt <- thisdf[, .(lapply(.SD, compute_wavelet, ts=Signal, time=Time, minfreq=minfreq, maxfreq=maxfreq)), by=keys, .SDcols="Signal"]
+    timefreq_dt <- thisdf[, .(lapply(.SD, function(dt) {
+      compute_wavelet(ts=Signal, time=Time, minfreq=minfreq, maxfreq=maxfreq, delta_t=delta_t, pad_tails=1) })), by=keys, .SDcols="Signal"]
+
     #timefreq_dt <- timefreq_dt[, .(V1[[1]]), by=.(Subject, Run, Trial)] #only needed if we return odf as a list in function (bad idea)
     
     #unnest by selecting out data.table from V1 -- V1 is a 'list-column'
     timefreq_dt <- timefreq_dt[, V1[[1]], by=keys]
+
+    if (isTRUE(db_transform)) { timefreq_dt[, Pow:=10*log10(Pow)] } #don't save original scaling, too (storage issue)
     setkeyv(timefreq_dt, c("Subject", "Run", "Trial", "Freq"))
     setorderv(timefreq_dt, c("Subject", "Run", "Trial", "Freq", "Time")) #make sure we sort properly before subsampling
     
@@ -90,7 +108,7 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
 sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223")
 
 for (ss in sensors) {
-  result <- timefreq_sensor(paste0("../r_channel_combined/MEG", ss, ".rds"))
+  result <- timefreq_sensor(paste0("../r_channel_combined/MEG", ss, ".rds"), ncpus=8)
   saveRDS(result, file=paste0("../time_frequency/MEG", ss, "_tf.rds"))
 }
 
