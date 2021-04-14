@@ -93,7 +93,7 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
     #unnest by selecting out data.table from V1 -- V1 is a 'list-column'
     timefreq_dt <- timefreq_dt[, V1[[1]], by=keys]
 
-    if (isTRUE(db_transform)) { timefreq_dt[, Pow:=10*log10(Pow)] } #don't save original scaling, too (storage issue)
+    if (isTRUE(db_transform)) { timefreq_dt[, Pow:=10*log10(Pow + 1e-25)] } #don't save original scaling, too (storage issue)
     setkeyv(timefreq_dt, c("Subject", "Run", "Trial", "Freq"))
     setorderv(timefreq_dt, c("Subject", "Run", "Trial", "Freq", "Time")) #make sure we sort properly before subsampling
     
