@@ -1,5 +1,9 @@
 library(data.table)
 
+epoch <- Sys.getenv("epoch")
+if (epoch=="") { epoch <- "feedback" }
+
+
 subsample_dt <- function(dt, keys=key(dt), dfac=1L, method="subsamp") {
   checkmate::assert_data_table(dt)
   downsamp <- function(col, dfac=1L) { col[seq(1, length(col), dfac)] }
@@ -22,10 +26,13 @@ library(doParallel)
 cl <- makeForkCluster(8)
 registerDoParallel(cl)
 
-datapath="/proj/mnhallqlab/projects/Clock_MEG/r_channel_combined"
+datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
+outputpath <- sub("/original", "/downsamp_20Hz_mean", datapath, fixed=TRUE)
+if (!dir.exists(outputpath)) { dir.create(outputpath) }
+
 megfiles <- list.files(path=datapath, pattern="MEG[0-9]+\\.rds", full.names=TRUE)
 
-extant_files <- file.path(datapath, "downsamp_20Hz_mean", sub(".rds", "_20Hz.rds", basename(megfiles), fixed=TRUE))
+extant_files <- file.path(outputpath, sub(".rds", "_20Hz.rds", basename(megfiles), fixed=TRUE))
 megfiles <- megfiles[!file.exists(extant_files)]
 
 if (length(megfiles) == 0L) { quit(status=0, save="no") } #end gracefully

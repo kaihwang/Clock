@@ -9,6 +9,13 @@ library(doParallel)
 #setwd("~/Data_Analysis/clock_analysis/meg/code")
 setwd("/proj/mnhallqlab/projects/Clock_MEG/code")
 
+epoch <- Sys.getenv("epoch")
+if (epoch=="") { epoch <- "feedback" }
+
+datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
+outputpath <- sub("/original", "/time_freq", datapath, fixed=TRUE)
+if (!dir.exists(outputpath)) { dir.create(outputpath) }
+
 compute_wavelet <- function(ts, time, delta_t=.004, dj=1/4, maxfreq=NULL, minfreq=NULL, pad_tails=1) {
   max.scale <- ifelse(is.null(maxfreq), NULL, 1/minfreq)
   s0 <- ifelse(is.null(maxfreq), 2*delta_t, 1/maxfreq)
@@ -108,8 +115,8 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
 sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223")
 
 for (ss in sensors) {
-  result <- timefreq_sensor(paste0("../r_channel_combined/MEG", ss, ".rds"), ncpus=8)
-  saveRDS(result, file=paste0("../time_frequency/MEG", ss, "_tf.rds"))
+  result <- timefreq_sensor(file.path(datapath, paste0("MEG", ss, ".rds")), ncpus=8)
+  saveRDS(result, file=file.path(outputpath, paste0("MEG", ss, "_tf.rds")))
 }
 
 # dd <- expand.grid(unique(df$Subject), unique(df$Run), unique(df$Trial))
