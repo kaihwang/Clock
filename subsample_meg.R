@@ -41,16 +41,16 @@ if (length(megfiles) == 0L) { quit(status=0, save="no") } #end gracefully
 ff <- foreach(mm = iter(megfiles), .packages=c("data.table")) %dopar% {
   xx <- readRDS(mm)
   dt <- xx$get() #rehydrate for visualization
+  rm(xx)
   dt[, Channel:=NULL]
   dt[, Event:=NULL] #all feedback for now
   setkeyv(dt, c("Subject", "Run", "Trial"))
   setorderv(dt, c("Subject", "Run", "Trial", "Time")) #make sure we sort properly before subsampling
-  rm(xx)
 
   #downsample by 12x -- 20.83 Hz
   dt_down <- subsample_dt(dt, dfac=12, method="mean")
 
-  saveRDS(dt_down, file=file.path(datapath, "downsamp_20Hz_mean", sub(".rds", "_20Hz.rds", basename(mm), fixed=TRUE)))
+  saveRDS(dt_down, file=file.path(outputpath, sub(".rds", "_20Hz.rds", basename(mm), fixed=TRUE)))
   return(NULL)
 }
 

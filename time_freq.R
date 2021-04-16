@@ -115,8 +115,10 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
 sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223")
 
 for (ss in sensors) {
+  outfile <- file.path(outputpath, paste0("MEG", ss, "_tf.rds"))
+  if (file.exists(outfile)) { next } #skip existing files
   result <- timefreq_sensor(file.path(datapath, paste0("MEG", ss, ".rds")), ncpus=8)
-  saveRDS(result, file=file.path(outputpath, paste0("MEG", ss, "_tf.rds")))
+  saveRDS(result, file=outfile)
 }
 
 # dd <- expand.grid(unique(df$Subject), unique(df$Run), unique(df$Trial))

@@ -6,10 +6,10 @@ epoch <- Sys.getenv("epoch")
 if (epoch=="") { epoch <- "feedback" }
 
 inputdir <- paste0("../tfr_csvs/", epoch)
-outputdir <- paste0("../tfr_rds/original/", epoch)
+outputdir <- paste0("../tfr_rds/", epoch, "/original")
 
 stopifnot(dir.exists(inputdir))
-if (!dir.exists(outputdir)) { dir.create(outputdir) }
+if (!dir.exists(outputdir)) { dir.create(outputdir, recursive=TRUE) }
 
 channels <- list.dirs(inputdir, recursive=FALSE)
 chnames <- sub(".*/ch_(MEG\\d{4})", "\\1", channels, perl=TRUE)
