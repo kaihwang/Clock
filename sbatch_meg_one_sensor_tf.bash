@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#SBATCH -p general
+#SBATCH -N 1
+#SBATCH --mem 64g
+#SBATCH -n 8
+#SBATCH -t 2:00:00
+
+[ -z "$sensor" ] && echo "No sensor env variable passed in" && exit 1
+[ -z "$epoch" ] && echo "No epoch env variable passed in" && exit 1
+
+module use /proj/mnhallqlab/sw/modules
+module load r/4.0.3_depend
+
+R CMD BATCH --no-save --no-restore time_freq.R tf_rout_files/time_freq_${epoch}_${sensor}.Rout
+

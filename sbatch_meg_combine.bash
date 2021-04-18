@@ -11,7 +11,7 @@
 module use /proj/mnhallqlab/sw/modules
 module load r/4.0.3_depend
 
-export epoch=clock
+export epoch=RT
 
 R CMD BATCH --no-save --no-restore combine_meg_evoked.R
 R CMD BATCH --no-save --no-restore subsample_meg.R

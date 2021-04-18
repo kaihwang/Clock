@@ -9,9 +9,29 @@ library(doParallel)
 #setwd("~/Data_Analysis/clock_analysis/meg/code")
 setwd("/proj/mnhallqlab/projects/Clock_MEG/code")
 
+#external settings
 epoch <- Sys.getenv("epoch")
 if (epoch=="") { epoch <- "feedback" }
 
+sensors <- Sys.getenv("sensor")
+if (sensors=="") { sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223") }
+
+tmin <- Sys.getenv("tmin")
+if (tmin=="") {
+  tmin <- -Inf
+} else {
+  tmin <- as.numeric(tmin)
+}
+
+tmax <- Sys.getenv("tmax")
+if (tmax=="") {
+  tmax <- Inf
+} else {
+  tmax <- as.numeric(tmax)
+}
+
+
+#paths
 datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
 outputpath <- sub("/original", "/time_freq", datapath, fixed=TRUE)
 if (!dir.exists(outputpath)) { dir.create(outputpath) }
@@ -59,12 +79,13 @@ subsample_dt <- function(dt, keys=key(dt), dfac=1L, method="subsamp") {
 }
 
 
-timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
+timefreq_sensor <- function(ff, downsamp=12, ncpus=4, tmin=-Inf, tmax=Inf) {
   df <- readRDS(ff)
   df <- df$get()
   df[, Channel:=NULL]
   df[, Event:=NULL] #all feedback for now
   df[, Signal:=Signal*1e10] #scale up to reasonable level
+  df[, Time > tmin & Time < tmax] #filter out times, if requested
   setkeyv(df, c("Subject", "Run", "Trial"))
   setorderv(df, c("Subject", "Run", "Trial", "Time")) #make sure we sort properly before subsampling
   
@@ -112,15 +133,16 @@ timefreq_sensor <- function(ff, downsamp=12, ncpus=4) {
   
 }
 
-sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223")
-
 for (ss in sensors) {
   outfile <- file.path(outputpath, paste0("MEG", ss, "_tf.rds"))
   if (file.exists(outfile)) { next } #skip existing files
-  result <- timefreq_sensor(file.path(datapath, paste0("MEG", ss, ".rds")), ncpus=8)
+  result <- timefreq_sensor(file.path(datapath, paste0("MEG", ss, ".rds")), ncpus=8, tmin=tmin, tmax=tmax)
   saveRDS(result, file=outfile)
 }
 
+
+
+-----
 # dd <- expand.grid(unique(df$Subject), unique(df$Run), unique(df$Trial))
 
 #example <- compute_wavelet(t1$Signal, t1$Time, minfreq=minfreq, maxfreq=maxfreq)
