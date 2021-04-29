@@ -78,8 +78,9 @@ for subject in [11313]:
         # the end result is a subject_df that has the timeseries for each trial and each ROI
         subject_df = pd.concat([subject_df, trial_df])
         output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
-        # the output will be about 300mb per subjet
-        subject_df.to_csv(output_path)
+
+    # the output will be about 300mb per subjet
+    subject_df.to_csv(output_path)
 
 
 
