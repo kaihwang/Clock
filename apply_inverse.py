@@ -58,13 +58,13 @@ for subject in subjects[1:10]: #testing first 10 subjects
     #roi_5mm = resample_from_to(roifile, template_img, mode='nearest')
 
     #rois of interest from Michael, create a new roi mask file with just these ROIs
-    #rois_list = [137,34,147,43,35,139,138,36,141,38,145,41,142,33,144,40,140,37,143,39,146,42,135,136,31,32,25,128]
+    rois_list = [137,34,147,43,35,139,138,36,141,38,145,41,142,33,144,40,140,37,143,39,146,42,135,136,31,32,25,128]
     #mask_data = np.zeros((roi_5mm.shape))
     #for r in rois_list:
     #    mask_data[roi_5mm.get_fdata()==r] = r
     #roi_mask = nilearn.image.new_img_like(roi_5mm, mask_data)
     # create masker with this roi image
-    masker = NiftiLabelsMasker(labels_img=roifile, standardize=False) #roi masker
+    masker = NiftiLabelsMasker(labels_img=roifile, standardize=False) #roi masker. Now use original ROI template to avoid weird interpolation
 
     # loop through trials, extract ts for each trial
     # log the trial index, so that it will "skip" over the dropped trials
@@ -75,8 +75,9 @@ for subject in subjects[1:10]: #testing first 10 subjects
     # create df for each trial
     for i, trial in enumerate(trials):
         source_epoch = stcs[i].as_volume(vol_src) # turn source data into a nii object
-        ts = masker.fit_transform(source_epoch) # 1251 time points by 25 ROIs, ROIs will be ranked by its integer values
+        ts = masker.fit_transform(source_epoch) # 1251 time points by ALL ROIs, ROIs will be ranked by its integer values
         trial_df = pd.DataFrame(columns = masker.labels_, data = ts)
+        trial_df = trial_df[rois_list] # select ROIs
         trial_df['time'] = stcs[i].times
         trial_df['trial_num'] = trial+1  # adjust 0 base indexing
 
@@ -88,16 +89,6 @@ for subject in subjects[1:10]: #testing first 10 subjects
     # the output will be about 300mb per subjet
     output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
     subject_df.to_csv(output_path)
-
-
-
-
-
-
-
-
-
-
 
 
 
