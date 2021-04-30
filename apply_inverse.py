@@ -16,7 +16,7 @@ subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
-for subject in [11313]:
+for subject in subjects[1:10]: #testing first 10 subjects
     print(subject)
 
     #create dataframe for each subject
@@ -44,21 +44,27 @@ for subject in [11313]:
     # read in Michael's ROIs
     roipath = subjects_dir + 'dan_subject_1mm/%s*dan_1mm.nii.gz' %subject # get rid of the data prefix
     roifile = glob.glob(roipath)
-    roifile = nib.load(roifile[0])
+
+    if not roifile:
+        stn = 'no roi file for subject %s' %subject
+        print(stn)
+        continue
+    else:
+        roifile = nib.load(roifile[0])
 
     # source image in 5mm voxle, so need to resample
     # interpolate ROI template to 5mm (source resolution)
-    template_img = index_img(stcs[0].as_volume(vol_src),0)  # turn into nii object for nilearn and nibabel manipulations
-    roi_5mm = resample_from_to(roifile, template_img, mode='nearest')
+    #template_img = index_img(stcs[0].as_volume(vol_src),0)  # turn into nii object for nilearn and nibabel manipulations
+    #roi_5mm = resample_from_to(roifile, template_img, mode='nearest')
 
     #rois of interest from Michael, create a new roi mask file with just these ROIs
-    rois_list = [137,34,147,43,35,139,138,36,141,38,145,41,142,33,144,40,140,37,143,39,146,42,135,136,31,32,25,128]
-    mask_data = np.zeros((roi_5mm.shape))
-    for r in rois_list:
-        mask_data[roi_5mm.get_fdata()==r] = r
-    roi_mask = nilearn.image.new_img_like(roi_5mm, mask_data)
+    #rois_list = [137,34,147,43,35,139,138,36,141,38,145,41,142,33,144,40,140,37,143,39,146,42,135,136,31,32,25,128]
+    #mask_data = np.zeros((roi_5mm.shape))
+    #for r in rois_list:
+    #    mask_data[roi_5mm.get_fdata()==r] = r
+    #roi_mask = nilearn.image.new_img_like(roi_5mm, mask_data)
     # create masker with this roi image
-    masker = NiftiLabelsMasker(labels_img=roi_mask, standardize=False) #roi masker
+    masker = NiftiLabelsMasker(labels_img=roifile, standardize=False) #roi masker
 
     # loop through trials, extract ts for each trial
     # log the trial index, so that it will "skip" over the dropped trials
@@ -77,9 +83,10 @@ for subject in [11313]:
         # concate each trial df to the subject df.
         # the end result is a subject_df that has the timeseries for each trial and each ROI
         subject_df = pd.concat([subject_df, trial_df])
-        output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
+
 
     # the output will be about 300mb per subjet
+    output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
     subject_df.to_csv(output_path)
 
 
