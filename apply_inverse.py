@@ -16,7 +16,7 @@ subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
-for subject in subjects[1:10]: #testing first 10 subjects
+for subject in subjects: #testing first 10 subjects
     print(subject)
 
     #create dataframe for each subject
@@ -77,7 +77,7 @@ for subject in subjects[1:10]: #testing first 10 subjects
         source_epoch = stcs[i].as_volume(vol_src) # turn source data into a nii object
         ts = masker.fit_transform(source_epoch) # 1251 time points by ALL ROIs, ROIs will be ranked by its integer values
         trial_df = pd.DataFrame(columns = masker.labels_, data = ts)
-        trial_df = trial_df[rois_list] # select ROIs
+        trial_df = trial_df[rois_list] # select ROIs, this step could cause problem if ROIs missing for whatev reason.
         trial_df['time'] = stcs[i].times
         trial_df['trial_num'] = trial+1  # adjust 0 base indexing
 
