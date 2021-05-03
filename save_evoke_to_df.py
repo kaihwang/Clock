@@ -23,10 +23,10 @@ if __name__ == "__main__":
     else:
         to_extract = [env_channel] #single channel extraction
 
-    extract_epoch='feedback'
+    extract_epoch='RT'
     
     #where to save csv files
-    outputpath = '/proj/mnhallqlab/projects/Clock_MEG/csv_data_update/'
+    outputpath = '/proj/mnhallqlab/projects/Clock_MEG/rt_data/'
 
     #loop through channels
     for chname in to_extract:

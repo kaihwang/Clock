@@ -86,10 +86,10 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 	}}
 
 	Epoch_timings = {
-	'clock'   : [-1,4],
+	'clock'   : [-4,4],
 	'feedback': [-4, 1],
 	'ITI'     : [0,1],  #no baseline for ITI
-	'RT': [-1,1.15],
+	'RT': [-4,4],
 	}
 	print(Event_types)
 	epochs = dict.fromkeys(Event_types)

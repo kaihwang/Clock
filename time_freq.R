@@ -30,7 +30,6 @@ if (tmax=="") {
   tmax <- as.numeric(tmax)
 }
 
-
 #paths
 datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
 outputpath <- sub("/original", "/time_freq", datapath, fixed=TRUE)
@@ -82,10 +81,11 @@ subsample_dt <- function(dt, keys=key(dt), dfac=1L, method="subsamp") {
 timefreq_sensor <- function(ff, downsamp=12, ncpus=4, tmin=-Inf, tmax=Inf) {
   df <- readRDS(ff)
   df <- df$get()
-  df[, Channel:=NULL]
+  #df[, Channel:=NULL]
+  df[, Channel:=sub("MEG", "", Channel, fixed=TRUE)] #keep channel for Alex scripts
   df[, Event:=NULL] #all feedback for now
   df[, Signal:=Signal*1e10] #scale up to reasonable level
-  df[, Time > tmin & Time < tmax] #filter out times, if requested
+  df <- df[Time > tmin & Time < tmax] #filter out times, if requested
   setkeyv(df, c("Subject", "Run", "Trial"))
   setorderv(df, c("Subject", "Run", "Trial", "Time")) #make sure we sort properly before subsampling
   
