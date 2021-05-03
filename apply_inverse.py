@@ -4,6 +4,7 @@ import numpy as np
 from Clock import raw_to_epoch
 from Clock import get_dropped_trials_list
 import os.path as op
+import os
 import nibabel as nib
 import nilearn
 import glob
@@ -11,9 +12,14 @@ from nibabel.processing import resample_from_to
 from nilearn.image import index_img
 from nilearn.input_data import NiftiLabelsMasker
 
-subjects_dir = '/data/backed_up/kahwang/Clock/'
-subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
-channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
+subjects_dir = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
+subjects = np.loadtxt('/proj/mnhallqlab/projects/Clock_MEG/code/subjects', dtype=int)
+channels_list = np.load('/proj/mnhallqlab/projects/Clock_MEG/code/channel_list.npy')
+
+env_subject=os.getenv('subject')
+
+if env_subject is not None:
+    subjects = [env_subject] #single subject extraction
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
 for subject in subjects: #testing first 10 subjects
@@ -89,9 +95,6 @@ for subject in subjects: #testing first 10 subjects
     # the output will be about 300mb per subjet
     output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
     subject_df.to_csv(output_path)
-
-
-
 
 
 # end of file

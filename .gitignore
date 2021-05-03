@@ -6,4 +6,8 @@
 *.jpeg
 *.tiff
 *.tif
-
+ofiles/
+tf_rout_files/
+__pycache__/
+*.Rout
+*.out
