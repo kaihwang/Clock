@@ -16,10 +16,16 @@ subjects_dir = '/proj/mnhallqlab/projects/Clock_MEG/fif_data/'
 subjects = np.loadtxt('/proj/mnhallqlab/projects/Clock_MEG/code/subjects', dtype=int)
 channels_list = np.load('/proj/mnhallqlab/projects/Clock_MEG/code/channel_list.npy')
 
-env_subject=os.getenv('subject')
+env_subject = os.getenv('subject')
+env_epoch = os.getenv('epoch')
 
 if env_subject is not None:
     subjects = [env_subject] #single subject extraction
+
+if env_epoch is None:
+    epoch = 'feedback'
+else:
+    epoch = env_epoch
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
 for subject in subjects: #testing first 10 subjects
@@ -35,7 +41,7 @@ for subject in subjects: #testing first 10 subjects
     vol_src = mne.read_source_spaces(src_fn)
 
     # read epochs
-    Event_types = ['feedback']
+    Event_types = [epoch]
     fb_ep = raw_to_epoch(subject, Event_types)
     drops = get_dropped_trials_list(fb_ep) #0 based
 
@@ -44,7 +50,7 @@ for subject in subjects: #testing first 10 subjects
         drops = np.array([63,125,187])
 
     # project
-    stcs = mne.beamformer.apply_lcmv_epochs(fb_ep['feedback'], filters, max_ori_out='signed')
+    stcs = mne.beamformer.apply_lcmv_epochs(fb_ep[epoch], filters, max_ori_out='signed')
     # temporal info for this source object tmin : -4000.0 (ms), tmax : 1000.0 (ms), tstep : 4.0 (ms)
 
     # read in Michael's ROIs
@@ -93,7 +99,7 @@ for subject in subjects: #testing first 10 subjects
 
 
     # the output will be about 300mb per subjet
-    output_path = subjects_dir + 'csv_data/%s_source_ts.csv' %subject
+    output_path = subjects_dir + 'csv_data/%s_%s_source_ts.csv' %(subject, epoch)
     subject_df.to_csv(output_path)
 
 
