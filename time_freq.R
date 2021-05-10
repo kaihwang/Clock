@@ -69,7 +69,7 @@ for (ss in sensors) {
   if (file.exists(outfile)) next # skip existing files
   result <- timefreq_calc(infile,
     filetype = ifelse(isTRUE(use_source), "source", "sensor"),
-    ncpus = 1, tmin = tmin, tmax = tmax
+    ncpus = 8, tmin = tmin, tmax = tmax
   )
 
   saveRDS(result, file = outfile)

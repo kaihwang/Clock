@@ -14,6 +14,7 @@ module load r/4.0.3_depend
 
 sid=$( basename "$sourcefile" )
 sid=${sid/.rds/}
+cd ../ #sbatch scripts live in subdirectory
 
 R CMD BATCH --no-save --no-restore time_freq.R tf_rout_files/time_freq_${epoch}_${sid}.Rout
 
