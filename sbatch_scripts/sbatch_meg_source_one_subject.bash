@@ -10,5 +10,6 @@
 . "/nas/longleaf/apps/anaconda/2020.07/etc/profile.d/conda.sh"
 conda activate mne
 export subject epoch
+cd ../ #sbatch scripts live in subdirectory
 python3 apply_inverse.py
 

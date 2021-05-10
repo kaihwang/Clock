@@ -6,190 +6,71 @@ library(ggplot2)
 library(foreach)
 library(iterators)
 library(doParallel)
-#setwd("~/Data_Analysis/clock_analysis/meg/code")
+# setwd("~/Data_Analysis/clock_analysis/meg/code")
 setwd("/proj/mnhallqlab/projects/Clock_MEG/code")
+source("tf_functions.R")
 
-#external settings
+# external settings
 epoch <- Sys.getenv("epoch")
-if (epoch=="") { epoch <- "feedback" }
+if (epoch == "") {
+  epoch <- "RT"
+}
 
-sensors <- Sys.getenv("sensor")
-if (sensors=="") { sensors <- c("0612", "0613", "0542", "0543","1022", "1823", "1822", "2222", "2223") }
+#support a single source RDS input for subject-level DAN sources
+sourcefile <- Sys.getenv("sourcefile")
+if (sourcefile != "") {
+  use_source <- TRUE
+  stopifnot(file.exists(sourcefile))
+  sensors <- sourcefile
+} else {
+  use_source <- FALSE
+  sensors <- Sys.getenv("sensor")
+  if (sensors == "") {
+    sensors <- c("0612", "0613", "0542", "0543", "1022", "1823", "1822", "2222", "2223")
+  }
+}
 
 tmin <- Sys.getenv("tmin")
-if (tmin=="") {
+if (tmin == "") {
   tmin <- -Inf
 } else {
   tmin <- as.numeric(tmin)
 }
 
 tmax <- Sys.getenv("tmax")
-if (tmax=="") {
+if (tmax == "") {
   tmax <- Inf
 } else {
   tmax <- as.numeric(tmax)
 }
 
-#paths
-datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
-outputpath <- sub("/original", "/time_freq", datapath, fixed=TRUE)
-if (!dir.exists(outputpath)) { dir.create(outputpath) }
-
-compute_wavelet <- function(ts, time, delta_t=.004, dj=1/4, maxfreq=NULL, minfreq=NULL, pad_tails=1) {
-  max.scale <- ifelse(is.null(maxfreq), NULL, 1/minfreq)
-  s0 <- ifelse(is.null(maxfreq), 2*delta_t, 1/maxfreq)
-
-  if (pad_tails > 0) {
-    npad=ceiling(pad_tails/delta_t)
-    time_before <- seq(min(time) - npad*delta_t, min(time) - delta_t, by=delta_t)
-    signal_before <- rev(ts[1:npad])
-    time_after <- seq(max(time) + delta_t, max(time) + npad*delta_t, by=delta_t)
-    signal_after <- rev(ts[(length(ts) - npad + 1):length(ts)])
-    time <- c(time_before, time, time_after)
-    ts <- c(signal_before, ts, signal_after)
-  }
-  
-  res <- wt(cbind(time, ts), dt=delta_t, s0=s0, max.scale=max.scale, dj=dj, do.sig=FALSE, pad=TRUE)
-  odf <- data.table(time=time, t(res$power))
-  if (pad_tails > 0) { odf <- odf[(npad+1):(nrow(odf)-npad),] } #remove padding  
-  setnames(odf, c("Time", paste0("f_", sprintf("%06.3f", 1/res$scale))))
-  odf <- data.table::melt(odf, id.vars="Time", variable.name="Freq", value.name="Pow")
-
-  return(odf)
+# paths
+if (isTRUE(use_source)) {
+  datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/dan_source_rds/", epoch, "_time")
+  outputpath <- sub("_time", "_timefreq", datapath, fixed = TRUE)
+} else {
+  datapath <- paste0("/proj/mnhallqlab/projects/Clock_MEG/tfr_rds/", epoch, "/original")
+  outputpath <- sub("/original", "/time_freq", datapath, fixed = TRUE)
 }
 
-
-subsample_dt <- function(dt, keys=key(dt), dfac=1L, method="subsamp") {
-  checkmate::assert_data_table(dt)
-  downsamp <- function(col, dfac=1L) { col[seq(1, length(col), dfac)] }
-  
-  if (method=="subsamp") {
-    dt[, lapply(.SD, downsamp, dfac=dfac), by=keys]
-  } else if (method=="mean") {
-    dt[, chunk := rep(1:ceiling(.N/dfac), each=dfac, length.out=.N), by=keys]
-    
-    dt <- dt[, lapply(.SD, mean), by=c(keys, "chunk")] #compute mean of every k samples
-    dt[, chunk := NULL]
-  } else if (method=="time_mean") {
-    #dt[, chunk:=ggplot2::cut_interval(Time, n = NULL, length = NULL, ...)]
-  }
-  
-  return(dt)
-}
-
-
-timefreq_sensor <- function(ff, downsamp=12, ncpus=4, tmin=-Inf, tmax=Inf) {
-  df <- readRDS(ff)
-  df <- df$get()
-  #df[, Channel:=NULL]
-  df[, Channel:=sub("MEG", "", Channel, fixed=TRUE)] #keep channel for Alex scripts
-  df[, Event:=NULL] #all feedback for now
-  df[, Signal:=Signal*1e10] #scale up to reasonable level
-  df <- df[Time > tmin & Time < tmax] #filter out times, if requested
-  setkeyv(df, c("Subject", "Run", "Trial"))
-  setorderv(df, c("Subject", "Run", "Trial", "Time")) #make sure we sort properly before subsampling
-  
-  #wavelet settings: .004s bins, 25
-  delta_t <- .004
-  freq <- 1/delta_t
-  minfreq <- 2 #Hz
-  maxfreq <- 80 #Hz
-  db_transform <- TRUE
-  
-  keys <- key(df)
-
-  if (ncpus > 1) {
-    cl <- makeCluster(ncpus)
-    registerDoParallel(cl)
-    on.exit(try(stopCluster(cl)))
-  } else {
-    registerDoSEQ()
-  }
-  
-  #ram blows up if we go across all subjects
-  #thus, split by subject and do the time-frequency + downsampling per subject
-  splitdt <- split(df, df$Subject)
-  rm(df) #garbage collect unsplit data
-
-  ff <- foreach(thisdf=iter(splitdt), .noexport="splitdt", .packages=c("biwavelet", "data.table"), .export=c("subsample_dt", "compute_wavelet")) %dopar% {
-    
-    timefreq_dt <- thisdf[, .(lapply(.SD, function(dt) {
-      compute_wavelet(ts=Signal, time=Time, minfreq=minfreq, maxfreq=maxfreq, delta_t=delta_t, pad_tails=1) })), by=keys, .SDcols="Signal"]
-
-    #timefreq_dt <- timefreq_dt[, .(V1[[1]]), by=.(Subject, Run, Trial)] #only needed if we return odf as a list in function (bad idea)
-    
-    #unnest by selecting out data.table from V1 -- V1 is a 'list-column'
-    timefreq_dt <- timefreq_dt[, V1[[1]], by=keys]
-
-    if (isTRUE(db_transform)) { timefreq_dt[, Pow:=10*log10(Pow + 1e-25)] } #don't save original scaling, too (storage issue)
-    setkeyv(timefreq_dt, c("Subject", "Run", "Trial", "Freq"))
-    setorderv(timefreq_dt, c("Subject", "Run", "Trial", "Freq", "Time")) #make sure we sort properly before subsampling
-    
-    ss <- subsample_dt(timefreq_dt, dfac=downsamp, method="mean")
-    return(ss)
-  }
-  
-  return(rbindlist(ff))
-  
+if (!dir.exists(outputpath)) {
+  dir.create(outputpath)
 }
 
 for (ss in sensors) {
-  outfile <- file.path(outputpath, paste0("MEG", ss, "_tf.rds"))
-  if (file.exists(outfile)) { next } #skip existing files
-  result <- timefreq_sensor(file.path(datapath, paste0("MEG", ss, ".rds")), ncpus=8, tmin=tmin, tmax=tmax)
-  saveRDS(result, file=outfile)
+  if (isTRUE(use_source)) {
+    infile <- ss
+    outfile <- file.path(outputpath, sub("_source.rds", "_source_timefreq.rds", basename(ss), fixed = TRUE))
+  } else {
+    infile <- file.path(datapath, paste0("MEG", ss, ".rds"))   
+    outfile <- file.path(outputpath, paste0("MEG", ss, "_tf.rds"))
+  }
+
+  if (file.exists(outfile)) next # skip existing files
+  result <- timefreq_calc(infile,
+    filetype = ifelse(isTRUE(use_source), "source", "sensor"),
+    ncpus = 1, tmin = tmin, tmax = tmax
+  )
+
+  saveRDS(result, file = outfile)
 }
-
-
-
------
-# dd <- expand.grid(unique(df$Subject), unique(df$Run), unique(df$Trial))
-
-#example <- compute_wavelet(t1$Signal, t1$Time, minfreq=minfreq, maxfreq=maxfreq)
-
-# ss1 <- timefreq_dt %>% filter(Subject==10637 & Run==1 & Trial==1)
-# 
-# 
-# 
-# t1 <- df %>% filter(Subject==11329 & Run==1 & Trial==1) %>% mutate(Rownum=1:n())
-# #diff(t1$Time)
-# 
-# #test <- wt(t1 %>% select(Rownum, Signal), pad=TRUE, do.sig=FALSE, dt = .004) #, J1 = 20)
-# test <- wt(t1 %>% select(Time, Signal), pad=TRUE, do.sig=FALSE, dt = .004, s0=1/maxfreq, max.scale=1/minfreq, dj=1/12)
-# 1/test$scale
-# 
-# powmelt <- reshape2::melt(test$power)
-# 
-# 
-# 
-# 
-# example <- compute_wavelet(t1$Signal, t1$Time, minfreq=minfreq, maxfreq=maxfreq)
-# 
-# 
-# timefreq_dt <- df
-# 
-# 
-# ggplot(example, aes(x=time, y=freq, fill=pow))+ geom_tile()
-# 
-# #####
-# 
-# plot(test, plot.cb=TRUE)
-# 
-# heatmap.2(test$power,dendrogram='none', Rowv=FALSE, Colv=FALSE,trace='none')
-# 
-# t1 <- cbind(1:100, rnorm(100))
-# 
-# ## Continuous wavelet transform
-# wt.t1 <- wt(t1)
-# 
-# par(oma = c(0, 0, 0, 1), mar = c(5, 4, 4, 5) + 0.1)
-# plot(wt.t1, plot.cb = TRUE, plot.phase = FALSE)
-# 
-# 
-# # library(WaveletComp)
-# # my.wt <- analyze.wavelet(my.data, "x",
-# #                              loess.span = 0,
-# #                              dt = 1/24, dj = 1/20,
-# #                              lowerPeriod = 1/4,
-# #                              make.pval = TRUE, n.sim = 10,
-# #                              date.format = "%F %T", date.tz = "")
