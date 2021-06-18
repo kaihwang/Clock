@@ -16,7 +16,7 @@ subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
-for subject in subjects: #testing first 10 subjects
+for subject in [11313]: #testing first 10 subjects
     print(subject)
 
     #create dataframe for each subject
