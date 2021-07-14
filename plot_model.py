@@ -37,8 +37,8 @@ def create_param_tfr(sdf, term):
 
     # create custom tfr data array
     tdf=sdf.loc[sdf.term==term]
-    time = tdf.Time.unique() #what is the diff between "Time" and "t" in the dataframe?
-    freq = tdf.Freq.unique()
+    time = np.sort(tdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+    freq = np.sort(tdf.Freq.unique())
     new_data = np.zeros((306, len(freq), len(time)))
 
     # now plut in real stats into the dataframe
@@ -58,7 +58,7 @@ entropy_change_tfr = create_param_tfr(sdf, 'entropy_change_t')
 
 # a few different types of plots
 entropy_change_tfr.plot_topo(yscale='log', picks='grad')
-entropy_change_tfr.plot_joint(mode='mean', yscale='log', timefreqs=[(0.1, 5), (0.3, 5)], picks='grad')
+entropy_change_tfr.plot_joint(mode='mean', yscale='log', timefreqs=[(-0.1, 20), (0.25, 12), (0.6, 5), (0.9, 10), (1, 5)], picks='grad')
 
 
 #entropy_wi_tfr = create_param_tfr(sdf, 'v_entropy_wi')
