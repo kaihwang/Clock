@@ -68,7 +68,7 @@ kld_df = extract_sensor_random_effect(kld_rdata, 'rt')
 # turn dataframe into mne object for plotting
 v_entropy_wi_tfr = create_param_tfr(entropy_df, 'v_entropy_wi')
 entropy_change_t_tfr = create_param_tfr(entropy_change_df, 'entropy_change_t')
-#v_entropy_wi_tfr = create_param_tfr(kld_df, '???') ### I'm not sure what term to plot from kld.
+kld_v_entropy_wi_tfr = create_param_tfr(kld_df, 'v_entropy_wi') ### I'm not sure what term to plot from kld.
 
 
 ####################
@@ -77,6 +77,7 @@ entropy_change_t_tfr = create_param_tfr(entropy_change_df, 'entropy_change_t')
 # this function plots the sensor-wide TFR plot (the one you can click around with)
 v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_t_tfr.plot_topo(yscale='log', picks='grad')
+kld_v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
@@ -84,6 +85,7 @@ entropy_change_t_tfr.plot_topo(yscale='log', picks='grad')
 ########
 # another way to generate time-frequency montage
 # Here let us plot the montage of alpha
+# you would have to play around the colorbar scale (vmin and vmax).
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 times = np.arange(-1.5, 1.5, 0.2)
 for n, time in enumerate(times):
