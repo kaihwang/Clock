@@ -40,8 +40,8 @@ if __name__ == "__main__":
         
     	times = fb_Epoch[list(fb_Epoch.keys())[0]][extract_epoch].times
 
-		# different csv for each time pt
-		for itime, time in enumerate(times):
+	# different csv for each time pt
+	for itime, time in enumerate(times):
 
             fn = outputpath + 'ch_%s/time_%s/' %(chname, time)
             if not os.path.exists(fn):
@@ -49,6 +49,8 @@ if __name__ == "__main__":
 
             df = pd.DataFrame()
 
+            for s in fb_Epoch.keys():
+                
                 Total_trianN = fb_Epoch[s][extract_epoch].get_data().shape[0]
                 run = np.repeat(np.arange(1,9),63)
                 trials = np.arange(0,504)
