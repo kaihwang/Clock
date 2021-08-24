@@ -12,7 +12,7 @@ def create_param_tfr(sdf, term):
     '''
 
     # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
-    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+    template_TFR = mne.time_frequency.read_tfrs(datapath + 'group_feedback_power-tfr.h5')[0]
     # the data array in this template is 306 ch by 20 freq by 464 time
 
     # create custom tfr data array
@@ -52,23 +52,23 @@ def extract_sensor_random_effect(rdata, alignment):
 ####################
 
 #mkae paths global
-datapath = '/data/backed_up/kahwang/Clock/'
-save_path='/data/backed_up/kahwang/Clock/'
+datapath = '/proj/mnhallqlab/projects/Clock_MEG/topo_plots/'
+save_path='/proj/mnhallqlab/projects/Clock_MEG/topo_plots/'
 
 # read massive data
 entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 entropy_df = extract_sensor_random_effect(entropy_rdata, 'rt')
 
-entropy_change_rdata = pyreadr.read_r(datapath + 'entropy_change/meg_ddf_wholebrain_entropy_change.rds') #whole brain data
-entropy_change_df = extract_sensor_random_effect(entropy_change_rdata, 'rt')
+#entropy_change_rdata = pyreadr.read_r(datapath + 'entropy_change/meg_ddf_wholebrain_entropy_change.rds') #whole brain data
+#entropy_change_df = extract_sensor_random_effect(entropy_change_rdata, 'rt')
 
-kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole brain data
-kld_df = extract_sensor_random_effect(kld_rdata, 'rt')
+#kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole brain data
+#kld_df = extract_sensor_random_effect(kld_rdata, 'rt')
 
 # turn dataframe into mne object for plotting
 v_entropy_wi_tfr = create_param_tfr(entropy_df, 'v_entropy_wi')
-entropy_change_t_tfr = create_param_tfr(entropy_change_df, 'entropy_change_t')
-kld_v_entropy_wi_tfr = create_param_tfr(kld_df, 'v_entropy_wi') ### I'm not sure what term to plot from kld.
+#entropy_change_t_tfr = create_param_tfr(entropy_change_df, 'entropy_change_t')
+#kld_v_entropy_wi_tfr = create_param_tfr(kld_df, 'v_entropy_wi') ### I'm not sure what term to plot from kld.
 
 
 ####################
@@ -76,8 +76,8 @@ kld_v_entropy_wi_tfr = create_param_tfr(kld_df, 'v_entropy_wi') ### I'm not sure
 ####################
 # this function plots the sensor-wide TFR plot (the one you can click around with)
 v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
-entropy_change_t_tfr.plot_topo(yscale='log', picks='grad')
-kld_v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
+#entropy_change_t_tfr.plot_topo(yscale='log', picks='grad')
+#kld_v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
