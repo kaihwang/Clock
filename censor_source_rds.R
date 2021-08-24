@@ -8,12 +8,26 @@ if (epoch == "") {
     epoch <- "clock"
 }
 
-basedir <- "/proj/mnhallqlab/projects/Clock_MEG/fif_data/csv_data"
-inputdir <- file.path(basedir, paste0(epoch, "_rds"))
+timefreq <- Sys.getenv("timefreq")
+if (timefreq == "") {
+    timefreq <- FALSE
+} else {
+    timefreq <- as.logical(timefreq)
+}
+
+basedir <- "/proj/mnhallqlab/projects/Clock_MEG/dan_source_rds"
+
+if (isTRUE(timefreq)) {
+    inputdir <- file.path(basedir, paste0(epoch, "_timefreq"))
+    source_files <- list.files(inputdir, pattern = ".*_source_timefreq\\.rds", full.names = TRUE)
+} else {
+    inputdir <- file.path(basedir, paste0(epoch, "_time"))
+    source_files <- list.files(inputdir, pattern = ".*_source\\.rds", full.names = TRUE)
+}
+
 csvdata_dir <- "/proj/mnhallqlab/projects/clock_analysis/meg/data/csv_timings"
 behav_files <- list.files(path = csvdata_dir, pattern = ".*alltimes\\.csv", full.names = TRUE)
 allbehav <- rbindlist(lapply(behav_files, fread))
-source_files <- list.files(inputdir, pattern = ".*_source\\.rds", full.names = TRUE)
 
 # We should dump MEG data for super-short trials, right? There are many where RTs < 100
 # allbehav[rt < 100] #155 trials with excessively short RTs
@@ -25,7 +39,7 @@ source_files <- list.files(inputdir, pattern = ".*_source\\.rds", full.names = T
 
 for (ff in source_files) {
     xx <- readRDS(ff)
-    xx <- xx$get()
+    if (inherits(xx, "rle_dt")) { xx <- xx$get() } #convert back to data.table
 
     # load behavioral data for this subject
     behav_data <- allbehav[id == xx$Subject[1]]
@@ -35,7 +49,7 @@ for (ff in source_files) {
         (behav_data$rt > 4000 & behav_data$score == 0)]
     xx <- xx[!Trial %in% bad_trials, ] # drop bad trials from neural data
 
-    if (xx$Event[1] == "RT") {
+    if (epoch == "RT") {
         # for RT aligned data, censor onset of next trial (as noted above, this never happens in a 2s interval)
         # and censor pre-clock period (offline) -- so that we are always measuring online choice
 
@@ -59,7 +73,7 @@ for (ff in source_files) {
         xx <- xx[Time >= rt_censor_early & Time <= rt_censor_late]
         xx[, rt_censor_early := NULL]
         xx[, rt_censor_late := NULL]
-    } else if (xx$Event[1] == "clock") {
+    } else if (epoch == "clock") {
         # censor anything before the previous ITI
         behav_data[, prior_iti := dplyr::lag(iti_ideal, 1, order_by = Trial, default = 0)]
         tomerge <- behav_data[, c("Trial", "prior_iti", "rt")]
@@ -70,5 +84,9 @@ for (ff in source_files) {
         xx[, prior_iti := NULL]
     }
 
-    saveRDS(xx, sub("_source.rds", "_source_censor.rds", ff, fixed = TRUE))
+    if (isTRUE(timefreq)) {
+        saveRDS(xx, sub("_source_timefreq.rds", "_source_timefreq_censor.rds", ff, fixed = TRUE))
+    } else {
+        saveRDS(xx, sub("_source.rds", "_source_censor.rds", ff, fixed = TRUE))
+    }
 }
