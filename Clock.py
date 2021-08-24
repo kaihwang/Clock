@@ -91,6 +91,7 @@ def raw_to_epoch(subject, Event_types, channels_list = None):
 	'ITI'     : [0,1],  #no baseline for ITI
 	'RT': [-2,2],
 	}
+
 	print(Event_types)
 	epochs = dict.fromkeys(Event_types)
 	epo = []
@@ -1457,7 +1458,7 @@ def compile_evoke_reg(trial_type = 'feedback'):
 	parameters = ['(Intercept)','FacesFear', 'FacesHappy', 'Age', 'Trial', 'Rewarded', 'FacesFear:Age', 'FacesHappy:Age', 'FacesFear:Rewarded', 'FacesHappy:Rewarded']
 
 	if trial_type == 'feedback':
-		template = read_object('//home/kahwang/bin/Clock/ave_evoke_template')#[0]
+		template = read_object('/home/kahwang/bin/Clock/ave_evoke_template')#[0]
 
 		#setup var
 		Output ={}
@@ -1739,7 +1740,103 @@ if __name__ == "__main__":
 	# 	#here "dl" are the bad trials list that we need to remove from analyses
 
 	## Start work on doing inverse calculations
-	print('so hard')
+	#print('so hard')
+
+
+	### topoplot for Alex's model fit
+	# csv from r
+	#load("/Volumes/rdss_kahwang/tmp/plots/rt_rt/meg_medusa_rt_predict_output_all.Rdata")
+	#write.csv(rdf,file="/Volumes/rdss_kahwang/tmp/meg_medusa_rt_predict_output_all.csv")
+	#load("/Volumes/rdss_kahwang/tmp/plots/rt_rt/meg_medusa_rt_predict_output_all.Rdata")
+	#write.csv(ddf,file="/Volumes/rdss_kahwang/tmp/meg_medusa_rt_decode_output_all.csv")
+
+	rdf = pd.read_csv('~/RDSS/tmp/meg_medusa_rt_predict_output_all.csv')
+	ddf = pd.read_csv('~/RDSS/tmp/meg_medusa_rt_decode_output_all.csv')
+
+	channels_list = np.load('/data/backed_up/kahwang/bin/Clock/channel_list.npy')
+	template = read_object('/home/kahwang/bin/Clock/ave_evoke_template')
+
+	dataset = [rdf, ddf]
+	dfilename = ['predict', 'decode']
+	#sig = ['NS', '0']
+	#threshold = ['threshold', 'unthreshold']
+
+	for id, dat in enumerate(dataset):
+		terms = dat.term.unique()
+		times = dat.t.unique()
+
+		# get rid of () and : from alex's dataframe, otherwise files cant be generated"
+		#dat.term = dat.term.str.replace('(', '_')
+		#dat.term = dat.term.str.replace(')', '_')
+		#dat.term = dat.term.str.replace(':', '_')
+
+		for term in terms:
+			df = dat.loc[dat.term==term]
+
+			#create data matrix
+			n_ch = np.unique(dat['sensor']).shape[0] #306 channels
+			n_timepoint = np.unique(dat['t']).shape[0] #84 time points
+			data = np.zeros((n_ch,n_timepoint)) #channel by time
+			data_mask = np.zeros((n_ch,n_timepoint))
+
+			for index, row in df.iterrows():
+				#print('yes')
+
+				# find channel
+				ch = "MEG{:0>4d}".format(row['sensor'])
+				pick_ch = mne.pick_channels(template.ch_names,[ch])[0]
+
+				# find time
+				tidx = np.where(times==row.t)[0][0]
+				data[pick_ch, tidx] = row.estimate
+
+				# mask of significant data points
+				if row['p, FDR-corrected'] != 'NS':
+					data_mask[pick_ch, tidx] = 1
+
+			# mask out insig data
+			vmax = np.percentile(data, 98)
+			data_mask = np.array(data_mask, dtype=bool)
+			data[data_mask==0] = 0
+
+			# create evoke object for plotting
+			info = mne.create_info(template.ch_names, ch_types=template.get_channel_types(), sfreq=20.8333333)
+			info['chs'] = template.info['chs']
+			evoked_array = mne.EvokedArray(data, info, tmin=min(dat.t))
+
+			#evoked_array.plot_joint(picks='grad', times = evoked_array.times[np.arange(0,84,4)])
+			#sc=dict(eeg=1, grad=1, mag=1)
+			#sc=dict(marker='o', markerfacecolor='w', markeredgecolor='k', linewidth=0, markersize=7)
+			fn = term + '-2.97_to_-1.72s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(0,28,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-2.97_to_-1.72s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
+			fn = term + '-1.63_to_-.38s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(28,56,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-1.63_to_-.38s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
+			fn = term + '-0.38_to_.96s'
+			f=evoked_array.plot_topomap(times = evoked_array.times[np.arange(56,84,2)],ch_type='grad', sensors = False, cmap = 'RdBu_r', vmin=-1*vmax, vmax=vmax,
+				colorbar = True, scalings = 1, units='statistic', title= fn, show = False, contours = 0)
+			fn = 'AlexTopoPlots/'+ dfilename[id]+'_' + term + '-0.38_to_.96s' + '.png'
+			f.savefig(fn)
+			plt.close('all')
+			del f
+
+
+
+	#for ch in
+
+
+
+
+
 
 
 	## End of script

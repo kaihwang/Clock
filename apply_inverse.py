@@ -4,7 +4,6 @@ import numpy as np
 from Clock import raw_to_epoch
 from Clock import get_dropped_trials_list
 import os.path as op
-import os
 import nibabel as nib
 import nilearn
 import glob
@@ -28,7 +27,7 @@ else:
     epoch = env_epoch
 
 # use subject 10997 as an example, but you can do for subject in subjects: to loop through each subject
-for subject in subjects: #testing first 10 subjects
+for subject in [11313]: #testing first 10 subjects
     print(subject)
 
     #create dataframe for each subject
@@ -101,6 +100,5 @@ for subject in subjects: #testing first 10 subjects
     # the output will be about 300mb per subjet
     output_path = subjects_dir + 'csv_data/%s_%s_source_ts.csv' %(subject, epoch)
     subject_df.to_csv(output_path)
-
 
 # end of file
