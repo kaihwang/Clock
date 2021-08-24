@@ -4,6 +4,7 @@ import pandas as pd
 import mne as mne
 import pyreadr
 import matplotlib.pyplot as plt
+plt.ion()
 
 def create_param_tfr(sdf, term):
     ''' function to create mne objet for ploting from R data frame
