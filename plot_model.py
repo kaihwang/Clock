@@ -6,10 +6,11 @@ import pyreadr
 import matplotlib.pyplot as plt
 plt.ion()
 
-def create_param_tfr(sdf, term):
+def create_param_tfr(sdf, fdf, term, threshold = True):
     ''' function to create mne objet for ploting from R data frame
     two inputs, sdf: the dtaframe
     term, the variable for plotting
+    You also have the option to threshold the data, if True, then only data with fdr_p<0.05  will be saved
     '''
 
     # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
@@ -22,6 +23,8 @@ def create_param_tfr(sdf, term):
     freq = np.sort(tdf.Freq.unique())
     new_data = np.zeros((306, len(freq), len(time)))
 
+    fdf=fdf.loc[fdf.term==term]
+
     # now plut in real stats into the dataframe
     for index, row in tdf.iterrows():
         t = row.Time
@@ -30,14 +33,27 @@ def create_param_tfr(sdf, term):
         ch = 'MEG'+ '{:0>4}'.format(ch)
         #print(ch)
         ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
-        new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+        if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
+            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+        elif threshold:
+            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
+        else:
+            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+
     new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
 
     return new_tfr
 
+
 def extract_sensor_random_effect(rdata, alignment):
     ''' take r data frame, extract sensor level random effect, remeber to specity the alignment 'rt' or 'clock' '''
     df = rdata[None]
+
+    # save a different df that contains the fix effect so we can get the p values
+    fdf = df.loc[df.effect=='fixed']
+    fdf = fdf.loc[fdf.alignment==alignment]
+    fdf.Freq = fdf.Freq.astype('float')
+
     # cut it down to only include sensor data
     df = df.loc[df.group=='Sensor']
     #select random effects
@@ -46,7 +62,7 @@ def extract_sensor_random_effect(rdata, alignment):
     df = df.loc[df.alignment==alignment]
     df.Freq = df.Freq.astype('float')
 
-    return df
+    return df, fdf
 
 ####################
 #### Read data!
@@ -58,25 +74,32 @@ save_path='/data/backed_up/kahwang/Clock/'
 
 # read massive data
 entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
-entropy_df = extract_sensor_random_effect(entropy_rdata, 'rt')
+entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
+entropy_clock_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'clock')
 
 entropy_change_rdata = pyreadr.read_r(datapath + 'entropy_change/meg_ddf_wholebrain_entropy_change.rds') #whole brain data
-entropy_change_df = extract_sensor_random_effect(entropy_change_rdata, 'rt')
+entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
+entropy_change_clock_df, entropy_change_clock_fdf = extract_sensor_random_effect(entropy_change_rdata, 'clock')
 
 kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole brain data
-kld_df = extract_sensor_random_effect(kld_rdata, 'rt')
+kld_rt_df, kld_rt_fdf = extract_sensor_random_effect(kld_rdata, 'rt')
+kld_clock_df, kld_clock_fdf = extract_sensor_random_effect(kld_rdata, 'clock')
 
 # turn dataframe into mne object for plotting
-v_entropy_wi_tfr = create_param_tfr(entropy_df, 'v_entropy_wi')
-entropy_change_t_tfr = create_param_tfr(entropy_change_df, 'entropy_change_t')
-kld_v_entropy_wi_tfr = create_param_tfr(kld_df, 'v_entropy_wi') ### I'm not sure what term to plot from kld.
+v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi')
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
+kld_v_entropy_wi_rt_tfr = create_param_tfr(kld_rt_df, kld_rt_fdf, 'v_entropy_wi') 
+v_entropy_wi_clock_tfr = create_param_tfr(entropy_clock_df, entropy_clock_fdf, 'v_entropy_wi')
+entropy_change_t_clock_tfr = create_param_tfr(entropy_change_clock_df, entropy_change_clock_fdf, 'entropy_change_t')
+kld_v_entropy_wi_clock_tfr = create_param_tfr(kld_clock_df, kld_clock_fdf, 'v_entropy_wi') 
+
 
 
 ####################
 #### Plot!!
 ####################
 # this function plots the sensor-wide TFR plot (the one you can click around with)
-v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
+v_entropy_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_t_tfr.plot_topo(yscale='log', picks='grad')
 kld_v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
 # this plots the topographic map with specific time-frequency interval
@@ -90,7 +113,7 @@ kld_v_entropy_wi_tfr.plot_topo(yscale='log', picks='grad')
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 times = np.arange(-1.5, 1.5, 0.2)
 for n, time in enumerate(times):
-    v_entropy_wi_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, vmin = -0.06, vmax = 0.06, ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+    v_entropy_wi_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, vmin = -0.06, vmax = 0.06, ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
 plt.show()
 
 # Here let us plot the montage of theta
