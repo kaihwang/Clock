@@ -85,6 +85,15 @@ kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole b
 kld_rt_df, kld_rt_fdf = extract_sensor_random_effect(kld_rdata, 'rt')
 kld_clock_df, kld_clock_fdf = extract_sensor_random_effect(kld_rdata, 'clock')
 
+## entropy change pos and neg
+entropy_change_neg_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_neg.rds') #whole brain data
+entropy_change_neg_rt_df, entropy_change_neg_rt_fdf = extract_sensor_random_effect(entropy_change_neg_rdata, 'rt')
+entropy_change_neg_clock_df, entropy_change_neg_clock_fdf = extract_sensor_random_effect(entropy_change_neg_rdata, 'clock')
+
+entropy_change_pos_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_pos.rds') #whole brain data
+entropy_change_pos_rt_df, entropy_change_pos_rt_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'rt')
+entropy_change_pos_clock_df, entropy_change_pos_clock_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'clock')
+
 # turn dataframe into mne object for plotting
 v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi')
 entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
@@ -92,7 +101,10 @@ kld_v_entropy_wi_rt_tfr = create_param_tfr(kld_rt_df, kld_rt_fdf, 'v_entropy_wi'
 v_entropy_wi_clock_tfr = create_param_tfr(entropy_clock_df, entropy_clock_fdf, 'v_entropy_wi')
 entropy_change_t_clock_tfr = create_param_tfr(entropy_change_clock_df, entropy_change_clock_fdf, 'entropy_change_t')
 kld_v_entropy_wi_clock_tfr = create_param_tfr(kld_clock_df, kld_clock_fdf, 'v_entropy_wi')
-
+entropy_change_neg_t_rt_tfr = create_param_tfr(entropy_change_neg_rt_df, entropy_change_neg_rt_fdf, 'entropy_change_neg_t')
+entropy_change_pos_t_rt_tfr = create_param_tfr(entropy_change_pos_rt_df, entropy_change_pos_rt_fdf, 'entropy_change_pos_t')
+entropy_change_neg_t_clock_tfr = create_param_tfr(entropy_change_neg_clock_df, entropy_change_neg_clock_fdf, 'entropy_change_neg_t')
+entropy_change_pos_t_clock_tfr = create_param_tfr(entropy_change_pos_clock_df, entropy_change_pos_clock_fdf, 'entropy_change_pos_t')
 
 
 ####################
@@ -107,6 +119,10 @@ entropy_change_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 
 kld_v_entropy_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
 kld_v_entropy_wi_clock_tfr.plot_topo(yscale='log', picks='grad')
+
+
+entropy_change_neg_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+entropy_change_neg_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
@@ -115,6 +131,22 @@ kld_v_entropy_wi_clock_tfr.plot_topo(yscale='log', picks='grad')
 # another way to generate time-frequency montage
 # Here let us plot the montage of alpha
 # you would have to play around the colorbar scale (vmin and vmax).
+
+
+##### entropy_change_neg_t_rt_tfr, effect around -1.5 s (clock alignment)
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-0.5, 1.5, 0.1)
+for n, time in enumerate(times):
+    entropy_change_pos_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, ch_type ='grad',vmin = -0.4, vmax = 0.4, title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-0.5, 1.5, 0.1)
+for n, time in enumerate(times):
+    entropy_change_neg_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=4, fmax=7, ch_type ='grad', title = ('3 to 7 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+
 
 ##### v_entropy_wi, effect around -1.5 s (clock alignment)
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
@@ -127,7 +159,7 @@ plt.show()
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 times = np.arange(0.8, 1.2, 0.05)
 for n, time in enumerate(times):
-    entropy_change_t_rt_tfr.plot_topomap(cmap = 'bwr', baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, vmin = -0.15, vmax = 0.15, ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+    entropy_change_t_rt_tfr.plot_topomap(cmap = 'bwr', baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
 plt.show()
 
 ##### entropy_change_t_rt_tfr, low beta effect around 0 to 1sec
@@ -214,6 +246,8 @@ times = np.arange(-1.7, 0, 0.1)
 for n, time in enumerate(times):
     kld_v_entropy_wi_clock_tfr.plot_topomap(cmap = 'bwr', baseline=None, tmin = time, tmax = time+0.05, fmin=13, fmax=20, ch_type ='grad', title = ('13 to 20 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
 plt.show()
+
+
 ########################################################################
 ######### graveyard
 
