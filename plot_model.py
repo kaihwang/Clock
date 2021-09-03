@@ -85,6 +85,10 @@ kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole b
 kld_rt_df, kld_rt_fdf = extract_sensor_random_effect(kld_rdata, 'rt')
 kld_clock_df, kld_clock_fdf = extract_sensor_random_effect(kld_rdata, 'clock')
 
+reward_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_reward.rds') #whole brain data
+reward_rt_df, reward_rt_fdf = extract_sensor_random_effect(reward_rdata, 'rt')
+reward_clock_df, reward_clock_fdf = extract_sensor_random_effect(reward_rdata, 'clock')
+
 ## entropy change pos and neg
 entropy_change_neg_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_neg.rds') #whole brain data
 entropy_change_neg_rt_df, entropy_change_neg_rt_fdf = extract_sensor_random_effect(entropy_change_neg_rdata, 'rt')
@@ -105,6 +109,8 @@ entropy_change_neg_t_rt_tfr = create_param_tfr(entropy_change_neg_rt_df, entropy
 entropy_change_pos_t_rt_tfr = create_param_tfr(entropy_change_pos_rt_df, entropy_change_pos_rt_fdf, 'entropy_change_pos_t')
 entropy_change_neg_t_clock_tfr = create_param_tfr(entropy_change_neg_clock_df, entropy_change_neg_clock_fdf, 'entropy_change_neg_t')
 entropy_change_pos_t_clock_tfr = create_param_tfr(entropy_change_pos_clock_df, entropy_change_pos_clock_fdf, 'entropy_change_pos_t')
+reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t')
+reward_t_clock_tfr = create_param_tfr(reward_clock_df, reward_clock_fdf, 'reward_t')
 
 
 ####################
@@ -123,6 +129,10 @@ kld_v_entropy_wi_clock_tfr.plot_topo(yscale='log', picks='grad')
 
 entropy_change_neg_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_neg_t_clock_tfr.plot_topo(yscale='log', picks='grad')
+
+reward_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+reward_t_clock_tfr.plot_topo(yscale='log', picks='grad')
+
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
@@ -131,6 +141,13 @@ entropy_change_neg_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 # another way to generate time-frequency montage
 # Here let us plot the montage of alpha
 # you would have to play around the colorbar scale (vmin and vmax).
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(0, 1.5, 0.1)
+for n, time in enumerate(times):
+    reward_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=4, fmax=9, ch_type ='grad', title = ('3 to 7 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
 
 
 ##### entropy_change_neg_t_rt_tfr, effect around -1.5 s (clock alignment)
