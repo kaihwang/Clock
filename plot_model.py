@@ -73,6 +73,10 @@ datapath = '/data/backed_up/kahwang/Clock/'
 save_path='/data/backed_up/kahwang/Clock/'
 
 # read massive data
+pe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_abs_pe.rds')
+pe_rt_df, pe_rt_fdf, = extract_sensor_random_effect(pe_data, 'rt')
+
+
 entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
 entropy_clock_df, entropy_clock_fdf, = extract_sensor_random_effect(entropy_rdata, 'clock')
@@ -111,6 +115,7 @@ entropy_change_neg_t_clock_tfr = create_param_tfr(entropy_change_neg_clock_df, e
 entropy_change_pos_t_clock_tfr = create_param_tfr(entropy_change_pos_clock_df, entropy_change_pos_clock_fdf, 'entropy_change_pos_t')
 reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t')
 reward_t_clock_tfr = create_param_tfr(reward_clock_df, reward_clock_fdf, 'reward_t')
+pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 
 
 ####################
@@ -133,6 +138,8 @@ entropy_change_neg_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 reward_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 reward_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 
+pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
@@ -141,6 +148,21 @@ reward_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 # another way to generate time-frequency montage
 # Here let us plot the montage of alpha
 # you would have to play around the colorbar scale (vmin and vmax).
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(0.5, 0.9, 0.05)
+for n, time in enumerate(times):
+    pe_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=5, fmax=8, ch_type ='grad', title = ('5 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(0.5, 1.3, 0.05)
+for n, time in enumerate(times):
+    pe_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=12, ch_type ='grad', title = ('8 to 12 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+
+
 
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 times = np.arange(0, 1.5, 0.1)
