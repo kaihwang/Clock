@@ -75,7 +75,7 @@ save_path='/data/backed_up/kahwang/Clock/'
 # read massive data
 pe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_abs_pe.rds')
 pe_rt_df, pe_rt_fdf, = extract_sensor_random_effect(pe_data, 'rt')
-
+pe_reward_t_df, pe_reward_t_fdf, = extract_sensor_random_effect(pe_data, 'rt')
 
 entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
@@ -116,7 +116,7 @@ entropy_change_pos_t_clock_tfr = create_param_tfr(entropy_change_pos_clock_df, e
 reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t')
 reward_t_clock_tfr = create_param_tfr(reward_clock_df, reward_clock_fdf, 'reward_t')
 pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
-
+reward_t_rt_tfr = create_param_tfr(pe_reward_t_df, pe_reward_t_fdf, 'reward_t')
 
 ####################
 #### Plot!!
@@ -143,6 +143,47 @@ pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
 #v_entropy_wi_tfr.plot_joint(baseline=None, yscale='log', timefreqs=[(-1.5, 10), (-1, 10), (-0.5, 10), (0, 10), (0.5, 10), (1, 10)], picks='grad')
+
+
+########
+# publication plots
+
+## abs pe, theta signal, 5 to 8 hz, 0.2 to 0.4 s
+#from matplotlib.pyplot import figure
+#f = figure(figsize=(8, 6), dpi=300)
+#fig, axis = plt.subplots(3, 3, squeeze = True, figsize=(3,4))
+f = pe_t_rt_tfr.plot_topomap(baseline=None, tmin = -0.3, tmax = -0.1, fmin=5, fmax=8, ch_type ='grad', cmap = 'plasma', vmin = -0.08, vmax = 0.08, show=False, size = 3, colorbar = False)
+f.savefig('figures/pe_theta_-0.3.tiff')
+f = pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, ch_type ='grad', cmap = 'plasma', vmin = -0.08, vmax = 0.08, show=False, size = 3, colorbar = False)
+f.savefig('figures/pe_theta_0.5.tiff')
+f = pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.95, fmin=8, fmax=10, ch_type ='grad', cmap = 'plasma', vmin = -0.08, vmax = 0.08, show=False, size = 3, colorbar = False)
+f.savefig('figures/pe_alpha_-0.8.tiff')
+#plt.show()
+#a.set_size_inches(4, 4, forward=True)
+
+### reard signal, 2 to 4 hz, 4 to 8 hz, 0.2 to 0.8 s
+# f = reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=4, fmax=8, ch_type ='grad', cmap = 'plasma', vmin = -0.46, vmax = -0.35, show=False, size = 3, colorbar = False)
+# f.savefig('figures/reward_delta_0.5.tiff')
+
+
+### entropy change, alpha, theta, low beta 0.8 to 1.5
+f= entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.5, fmin=14, fmax=20, ch_type ='grad', cmap = 'plasma', vmin = -0.009, vmax = 0.0005, show=False, size = 3, colorbar = False)
+f.savefig('figures/entropy_change_lowbeta_0.8.tiff')
+
+f= entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.5, fmin=8, fmax=14, ch_type ='grad', cmap = 'plasma', vmin = -0.02, vmax = 0.0005, show=False, size = 3, colorbar = False)
+f.savefig('figures/entropy_change_alpha_0.8.tiff')
+
+f= entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.5, fmin=4, fmax=8, ch_type ='grad', cmap = 'plasma', vmin = -0.009, vmax = 0.0005, show=False, size = 3, colorbar = False)
+f.savefig('figures/entropy_change_theta_0.8.tiff')
+
+f= entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0, tmax = 0.3, fmin=8, fmax=14, ch_type ='grad', cmap = 'plasma', vmin = -0.008, vmax = 0.08, show=False, size = 3, colorbar = True)
+f.savefig('figures/entropy_change_alpha_0.tiff')
+f= entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0, tmax = 0.3, fmin=8, fmax=14, ch_type ='grad', cmap = 'plasma', vmin = -0.08, vmax = 0.0005, show=False, size = 3, colorbar = False)
+f.savefig('figures/entropy_change_alpha_0.tiff')
+
+
+
+### v_max_wi??
 
 ########
 # another way to generate time-frequency montage
@@ -217,7 +258,7 @@ plt.show()
 
 ##### entropy_change_t_rt_tfr, theta effect around 1sec
 fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
-times = np.arange(0.8, 1.2, 0.05)
+times = np.arange(0.5, 1.5, 0.1)
 for n, time in enumerate(times):
     entropy_change_t_rt_tfr.plot_topomap(cmap = 'bwr', baseline=None, tmin = time, tmax = time+0.05, fmin=3, fmax=5, vmin = -0.055, vmax = 0.055, ch_type ='grad', title = ('3 to 5 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
 plt.show()
