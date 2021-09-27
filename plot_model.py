@@ -18,26 +18,36 @@ def create_param_tfr(sdf, fdf, term, threshold = True):
     # the data array in this template is 306 ch by 20 freq by 464 time
 
     # create custom tfr data array
-    tdf=sdf.loc[sdf.term==term]
+    try:
+        tdf=sdf.loc[sdf.term==term]
+    except:
+        tdf = df
+
     time = np.sort(tdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
     freq = np.sort(tdf.Freq.unique())
     new_data = np.zeros((306, len(freq), len(time)))
 
-    fdf=fdf.loc[fdf.term==term]
+    if threshold:
+        fdf=fdf.loc[fdf.term==term]
 
     # now plut in real stats into the dataframe
     for index, row in tdf.iterrows():
         t = row.Time
         f = row.Freq
-        ch = row.level
-        ch = 'MEG'+ '{:0>4}'.format(ch)
+        try:
+            ch = row.level
+            ch = 'MEG'+ '{:0>4}'.format(ch)
+        except:
+            ch = row.Sensor
+            ch = 'MEG'+ '{:0>4}'.format(ch)
         #print(ch)
         ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
-        if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
-            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
-        elif threshold:
-            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
-        else:
+        try:
+            if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
+                new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+            elif threshold:
+                new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
+        except:
             new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
 
     new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
@@ -63,6 +73,9 @@ def extract_sensor_random_effect(rdata, alignment):
     df.Freq = df.Freq.astype('float')
 
     return df, fdf
+
+
+
 
 ####################
 #### Read data!
@@ -101,6 +114,45 @@ entropy_change_neg_clock_df, entropy_change_neg_clock_fdf = extract_sensor_rando
 entropy_change_pos_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_pos.rds') #whole brain data
 entropy_change_pos_rt_df, entropy_change_pos_rt_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'rt')
 entropy_change_pos_clock_df, entropy_change_pos_clock_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'clock')
+
+## RT prediction
+rt_prediction_randomslope_rdata = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+rt_prediction_randomslope_rt_df, rt_prediction_randomslope_rt_fdf = extract_sensor_random_effect(rt_prediction_randomslope_rdata, 'RT')
+
+df = rt_prediction_randomslope_rdata[None]
+# cut it down to only include sensor data
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Reward']
+#select random effects
+df = df.loc[df.regressor=='RT_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+tfr_reward_RT_t = create_param_tfr(df, df, 'RT_t', threshold = False)
+tfr_reward_RT_t.plot_topo(yscale='log', picks='grad')
+
+df = rt_prediction_randomslope_rdata[None]
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Omission']
+#select random effects
+df = df.loc[df.regressor=='RT_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+tfr_omission_RT_t = create_param_tfr(df, df, 'RT_t', threshold = False)
+tfr_omission_RT_t.plot_topo(yscale='log', picks='grad')
+
+df = rt_prediction_randomslope_rdata[None]
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Reward']
+#select random effects
+df = df.loc[df.regressor=='RT_Vmax_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+tfr_reward_RTvmax_t = create_param_tfr(df, df, 'RT_Vmax_t', threshold = False)
+tfr_reward_RTvmax_t.plot_topo(yscale='log', picks='grad')
+
 
 # turn dataframe into mne object for plotting
 v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi')
