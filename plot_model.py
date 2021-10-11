@@ -6,6 +6,11 @@ import pyreadr
 import matplotlib.pyplot as plt
 plt.ion()
 
+#mkae paths global
+datapath = '/data/backed_up/kahwang/Clock/'
+save_path='/data/backed_up/kahwang/Clock/'
+
+
 def create_param_tfr(sdf, fdf, term, threshold = True):
     ''' function to create mne objet for ploting from R data frame
     two inputs, sdf: the dtaframe
@@ -75,15 +80,41 @@ def extract_sensor_random_effect(rdata, alignment):
     return df, fdf
 
 
+def create_tfr(df):
+    ''' function to create mne objet for ploting from R data frame from Michael
+    '''
+    df['Freq'] = df.Freq.str.lstrip('f_')
+    df['Freq'] = df.Freq.astype('float')
 
+    # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+    # the data array in this template is 306 ch by 20 freq by 464 time
+
+    # create custom tfr data array
+    time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+    freq = np.sort(df.Freq.unique())
+    new_data = np.zeros((306, len(freq), len(time)))
+    # now plut in real stats into the dataframe
+    for index, row in df.iterrows():
+        t = row.Time
+        f = row.Freq
+        try:
+            ch = row.level
+            ch = 'MEG'+ '{:0>4}'.format(ch)
+        except:
+            ch = row.Sensor
+            ch = 'MEG'+ '{:0>4}'.format(ch)
+        #print(ch)
+        ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+        new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.Estimate
+
+    new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+    return new_tfr
 
 ####################
 #### Read data!
 ####################
-
-#mkae paths global
-datapath = '/data/backed_up/kahwang/Clock/'
-save_path='/data/backed_up/kahwang/Clock/'
 
 # read massive data
 pe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_abs_pe.rds')
@@ -115,45 +146,6 @@ entropy_change_pos_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy
 entropy_change_pos_rt_df, entropy_change_pos_rt_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'rt')
 entropy_change_pos_clock_df, entropy_change_pos_clock_fdf = extract_sensor_random_effect(entropy_change_pos_rdata, 'clock')
 
-## RT prediction
-rt_prediction_randomslope_rdata = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
-rt_prediction_randomslope_rt_df, rt_prediction_randomslope_rt_fdf = extract_sensor_random_effect(rt_prediction_randomslope_rdata, 'RT')
-
-df = rt_prediction_randomslope_rdata[None]
-# cut it down to only include sensor data
-df = df.loc[df.alignment=='RT']
-df = df.loc[df.reward_t=='Reward']
-#select random effects
-df = df.loc[df.regressor=='RT_t']
-#which alignment?
-df.Freq = df.Freq.astype('float')
-df['estimate'] = df['zdiff']
-tfr_reward_RT_t = create_param_tfr(df, df, 'RT_t', threshold = False)
-tfr_reward_RT_t.plot_topo(yscale='log', picks='grad')
-
-df = rt_prediction_randomslope_rdata[None]
-df = df.loc[df.alignment=='RT']
-df = df.loc[df.reward_t=='Omission']
-#select random effects
-df = df.loc[df.regressor=='RT_t']
-#which alignment?
-df.Freq = df.Freq.astype('float')
-df['estimate'] = df['zdiff']
-tfr_omission_RT_t = create_param_tfr(df, df, 'RT_t', threshold = False)
-tfr_omission_RT_t.plot_topo(yscale='log', picks='grad')
-
-df = rt_prediction_randomslope_rdata[None]
-df = df.loc[df.alignment=='RT']
-df = df.loc[df.reward_t=='Reward']
-#select random effects
-df = df.loc[df.regressor=='RT_Vmax_t']
-#which alignment?
-df.Freq = df.Freq.astype('float')
-df['estimate'] = df['zdiff']
-tfr_reward_RTvmax_t = create_param_tfr(df, df, 'RT_Vmax_t', threshold = False)
-tfr_reward_RTvmax_t.plot_topo(yscale='log', picks='grad')
-
-
 # turn dataframe into mne object for plotting
 v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi')
 entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
@@ -170,19 +162,61 @@ reward_t_clock_tfr = create_param_tfr(reward_clock_df, reward_clock_fdf, 'reward
 pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 reward_t_rt_tfr = create_param_tfr(pe_reward_t_df, pe_reward_t_fdf, 'reward_t')
 
+#bayesian meta analsis from Michael
+int_contrast_by_sensor_df = pd.read_csv(datapath + 'int_contrast_by_sensor.csv')
+hilo_reward_by_sensor_df = pd.read_csv(datapath + 'hilo_reward_by_sensor.csv')
+hilo_omission_by_sensor_df = pd.read_csv(datapath + 'hilo_omission_by_sensor.csv')
+
+int_contrast_by_sensor_tfr= create_tfr(int_contrast_by_sensor_df)
+hilo_reward_by_sensor_tfr = create_tfr(hilo_reward_by_sensor_df)
+hilo_omission_by_sensor_tfr = create_tfr(hilo_omission_by_sensor_df)
+
+####################
+#### rt prediction
+####################
+rt_prediction_randomslope_rdata = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+df = rt_prediction_randomslope_rdata[None]
+# cut it down to only include sensor data
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Reward']
+#select random effects
+df = df.loc[df.regressor=='RT_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+
+df = rt_prediction_randomslope_rdata[None]
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Omission']
+#select random effects
+df = df.loc[df.regressor=='RT_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+
+df = rt_prediction_randomslope_rdata[None]
+df = df.loc[df.alignment=='RT']
+df = df.loc[df.reward_t=='Reward']
+#select random effects
+df = df.loc[df.regressor=='RT_Vmax_t']
+#which alignment?
+df.Freq = df.Freq.astype('float')
+df['estimate'] = df['zdiff']
+
+
+
 ####################
 #### Plot!!
 ####################
+
 # this function plots the sensor-wide TFR plot (the one you can click around with)
 v_entropy_wi_clock_tfr.plot_topo(yscale='log', picks='grad')
 
 entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 
-
 kld_v_entropy_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
 kld_v_entropy_wi_clock_tfr.plot_topo(yscale='log', picks='grad')
-
 
 entropy_change_neg_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_neg_t_clock_tfr.plot_topo(yscale='log', picks='grad')
@@ -191,6 +225,10 @@ reward_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 reward_t_clock_tfr.plot_topo(yscale='log', picks='grad')
 
 pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+
+tfr_omission_RT_t.plot_topo(yscale='log', picks='grad')
+tfr_reward_RT_t.plot_topo(yscale='log', picks='grad')
+tfr_reward_RTvmax_t.plot_topo(yscale='log', picks='grad')
 
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
