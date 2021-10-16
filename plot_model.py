@@ -112,6 +112,41 @@ def create_tfr(df):
 
     return new_tfr
 
+
+def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', effect = 'zhigh'):
+    ''' function to create mne objet for ploting from fixed effect data frame from Alex
+    '''
+    #df['Freq'] = df.Freq.str.lstrip('f_')
+    inputdf['Freq'] = inputdf.Freq.astype('float')
+    df = inputdf.loc[(inputdf['reward_t']==reward) & (inputdf['regressor']==regressor)]
+    # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+    # the data array in this template is 306 ch by 20 freq by 464 time
+
+    # create custom tfr data array
+    time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+    freq = np.sort(df.Freq.unique())
+    new_data = np.zeros((306, len(freq), len(time)))
+    # now plut in real stats into the dataframe
+    for index, row in df.iterrows():
+        t = row.Time
+        f = row.Freq
+        try:
+            ch = row.level
+            ch = 'MEG'+ '{:0>4}'.format(ch)
+        except:
+            ch = row.Sensor
+            ch = 'MEG'+ '{:0>4}'.format(ch)
+        #print(ch)
+        ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+        new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row[effect]
+
+    new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+    return new_tfr
+
+
+
 ####################
 #### Read data!
 ####################
@@ -170,6 +205,16 @@ hilo_omission_by_sensor_df = pd.read_csv(datapath + 'hilo_omission_by_sensor.csv
 int_contrast_by_sensor_tfr= create_tfr(int_contrast_by_sensor_df)
 hilo_reward_by_sensor_tfr = create_tfr(hilo_reward_by_sensor_df)
 hilo_omission_by_sensor_tfr = create_tfr(hilo_omission_by_sensor_df)
+
+
+# fixed effects
+wholebrain_fixefrandom_slope = pyreadr.read_r(datapath+'meg_rdf_wholebrain_fixefrandom_slope.rds')
+wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+zstats_df = wholebrain_zstats_random_slope[None]
+Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
+Reward_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Reward', 'RT_t' ,'zdiff')
+
+
 
 ####################
 #### rt prediction
