@@ -148,13 +148,31 @@ def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', ef
 
 
 ####################
-#### Read data!
+#### Read data! MASSIVE data
 ####################
 
-# read massive data
+## absolute PE, read and plot
 pe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_abs_pe.rds')
 pe_rt_df, pe_rt_fdf, = extract_sensor_random_effect(pe_data, 'rt')
 pe_reward_t_df, pe_reward_t_fdf, = extract_sensor_random_effect(pe_data, 'rt')
+pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
+pe_t_rt_utfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)', threshold = False)
+pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+pe_t_rt_utfr.plot_topo(yscale='log', picks='grad')
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(0.5, 1, 0.05)
+for n, time in enumerate(times):
+    pe_t_rt_tfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=20, ch_type ='grad', title = ('8 to 20 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-0.2, 0.5, 0.05)
+for n, time in enumerate(times):
+    pe_t_rt_utfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=4, fmax=8, ch_type ='grad', title = ('4 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+
 
 entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
@@ -197,6 +215,10 @@ reward_t_clock_tfr = create_param_tfr(reward_clock_df, reward_clock_fdf, 'reward
 pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 reward_t_rt_tfr = create_param_tfr(pe_reward_t_df, pe_reward_t_fdf, 'reward_t')
 
+pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.4, tmax = 0.6, fmin=4, fmax=8, ch_type ='grad')
+pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.9, fmin=8, fmax=9.9, ch_type ='grad')
+
+
 #bayesian meta analsis from Michael
 int_contrast_by_sensor_df = pd.read_csv(datapath + 'int_contrast_by_sensor.csv')
 hilo_reward_by_sensor_df = pd.read_csv(datapath + 'hilo_reward_by_sensor.csv')
@@ -207,14 +229,81 @@ hilo_reward_by_sensor_tfr = create_tfr(hilo_reward_by_sensor_df)
 hilo_omission_by_sensor_tfr = create_tfr(hilo_omission_by_sensor_df)
 
 
-# fixed effects
+# fixed effects RT prediction
 wholebrain_fixefrandom_slope = pyreadr.read_r(datapath+'meg_rdf_wholebrain_fixefrandom_slope.rds')
 wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
 zstats_df = wholebrain_zstats_random_slope[None]
 Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
 Reward_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Reward', 'RT_t' ,'zdiff')
+Reward_RT_vmax_zdiff = create_fixed_effect_tfr(zstats_df, 'Reward', 'RT_Vmax_t' ,'zdiff')
+
+Omission_RT_t_zdiff.plot_topo(yscale='log', picks='grad', vmax=-2, cmap='Blues_r')
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=2.1, fmax=4, vmax=-2, cmap='Blues_r', ch_type ='grad', title = ('2 to 4 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=4, fmax=8, vmax=-2, cmap='Blues_r', ch_type ='grad', title = ('4 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=8, fmax=14, vmax=-2, cmap='Blues_r', ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=14, fmax=20, vmax=-2, cmap='Blues_r', ch_type ='grad', title = ('14 to 20 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
 
 
+Reward_RT_t_zdiff.plot_topo(yscale='log', picks='grad', vmin=1, cmap='Reds_r')
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=2.1, fmax=4, vmin=1, cmap='Reds', ch_type ='grad', title = ('2 to 4 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=4, fmax=8, vmin=1, cmap='Reds', ch_type ='grad', title = ('4 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_t_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=8, fmax=14, vmin=1, cmap='Reds', ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+
+Reward_RT_vmax_zdiff.plot_topo(yscale='log', picks='grad', vmin=2, cmap='Reds_r')
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_vmax_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=2.1, fmax=4, vmin=2, cmap='Reds', ch_type ='grad', title = ('2 to 4 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_vmax_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=4, fmax=8, vmin=2, cmap='Reds', ch_type ='grad', title = ('4 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
+
+fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
+times = np.arange(-1.5, 1.5, 0.2)
+for n, time in enumerate(times):
+    Reward_RT_vmax_zdiff.plot_topomap(baseline=None, tmin = time, tmax = time+0.2, fmin=8, fmax=14, vmin=2, cmap='Reds', ch_type ='grad', title = ('8 to 14 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
+plt.show()
 
 ####################
 #### rt prediction
@@ -274,6 +363,8 @@ pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 tfr_omission_RT_t.plot_topo(yscale='log', picks='grad')
 tfr_reward_RT_t.plot_topo(yscale='log', picks='grad')
 tfr_reward_RTvmax_t.plot_topo(yscale='log', picks='grad')
+
+Reward_RT_vmax_zdiff.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=10, fmax=14, ch_type ='grad')
 
 # this plots the topographic map with specific time-frequency interval
 # under the 'timefreqs' flag, you can specifiy a list of (time, frequency) montage that you would like to plot
