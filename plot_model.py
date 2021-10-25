@@ -150,11 +150,18 @@ def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', ef
 ####################
 #### Read data! MASSIVE data
 ####################
+# sign PE
+spe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_signed_pe.rds')
+spe_rt_df, spe_rt_fdf, = extract_sensor_random_effect(spe_data, 'rt')
+spe_t_rt_tfr = create_param_tfr(spe_rt_df, spe_rt_fdf, 'pe_max_sc')
+spe_t_rt_utfr = create_param_tfr(spe_rt_df, spe_rt_fdf, 'pe_max_sc', threshold = False)
+spe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+spe_t_rt_utfr.plot_topo(yscale='log', picks='grad')
+
 
 ## absolute PE, read and plot
 pe_data = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_abs_pe.rds')
 pe_rt_df, pe_rt_fdf, = extract_sensor_random_effect(pe_data, 'rt')
-pe_reward_t_df, pe_reward_t_fdf, = extract_sensor_random_effect(pe_data, 'rt')
 pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 pe_t_rt_utfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)', threshold = False)
 pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
