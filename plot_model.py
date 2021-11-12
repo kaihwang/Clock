@@ -55,17 +55,15 @@ def create_param_tfr(sdf, fdf, term, threshold = False, threshold_se = True, se=
 				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
 			elif threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values>0.05):
 				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
-			elif threshold_se & (row.estimate>0) & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se<row.estimate):
+			elif threshold_se & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se<abs(row.estimate)):
 				#print('yes')
 				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
-
-			elif threshold_se & (row.estimate<0) & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se*-1<row.estimate):
-				#print('yes')
-				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+			# elif threshold_se & (row.estimate<0) & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se*-1<row.estimate):
+			# 	#print('yes')
+			# 	new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
 			else:
 				#print('did not survive threshold')
 				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
-
 			if no_threshold:
 				#print('no threshold')
 				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
@@ -261,7 +259,7 @@ entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmi
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
 entropy_change_se_tfr  = create_SE_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
 entropy_change_se_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
-
+entropy_change_se_tfr.plot_topo(yscale='log', picks='grad')
 #entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 #entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
 # entropy_clock_df, entropy_clock_fdf, = extract_sensor_random_effect(entropy_rdata, 'clock')
