@@ -11,139 +11,194 @@ datapath = '/data/backed_up/kahwang/Clock/'
 save_path='/data/backed_up/kahwang/Clock/'
 
 
-def create_param_tfr(sdf, fdf, term, threshold = True):
-    ''' function to create mne objet for ploting from R data frame
-    two inputs, sdf: the dtaframe
-    term, the variable for plotting
-    You also have the option to threshold the data, if True, then only data with fdr_p<0.05  will be saved
-    '''
+def create_param_tfr(sdf, fdf, term, threshold = False, threshold_se = True, se=4, no_threshold = False):
+	''' function to create mne objet for ploting from R data frame
+	two inputs, sdf: the dtaframe
+	term, the variable for plotting
+	You also have the option to threshold the data, if True, then only data with fdr_p<0.05  will be saved
+	'''
 
-    # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
-    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
-    # the data array in this template is 306 ch by 20 freq by 464 time
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
 
-    # create custom tfr data array
-    try:
-        tdf=sdf.loc[sdf.term==term]
-    except:
-        tdf = df
+	# create custom tfr data array
+	try:
+		tdf=sdf.loc[sdf.term==term]
+	except:
+		tdf = df
 
-    time = np.sort(tdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
-    freq = np.sort(tdf.Freq.unique())
-    new_data = np.zeros((306, len(freq), len(time)))
+	time = np.sort(tdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(tdf.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
 
-    if threshold:
-        fdf=fdf.loc[fdf.term==term]
+	if threshold:
+		fdf=fdf.loc[fdf.term==term]
+	if threshold_se:
+		fdf=fdf.loc[fdf.term==term]
 
-    # now plut in real stats into the dataframe
-    for index, row in tdf.iterrows():
-        t = row.Time
-        f = row.Freq
-        try:
-            ch = row.level
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        except:
-            ch = row.Sensor
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        #print(ch)
-        ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
-        try:
-            if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
-                new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
-            elif threshold:
-                new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
-        except:
-            new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+	# now plut in real stats into the dataframe
+	for index, row in tdf.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.level
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
 
-    new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+		try:
+			if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+			elif threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values>0.05):
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
+			elif threshold_se & (row.estimate>0) & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se<row.estimate):
+				#print('yes')
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
 
-    return new_tfr
+			elif threshold_se & (row.estimate<0) & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values*se*-1<row.estimate):
+				#print('yes')
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+			else:
+				#print('did not survive threshold')
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = 0
+
+			if no_threshold:
+				#print('no threshold')
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+		except:
+			print('zero')
+			#new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+	return new_tfr
+
+def create_SE_tfr(sdf, fdf, term):
+
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
+
+	# create custom tfr data array
+	tdf=sdf.loc[sdf.term==term]
+	time = np.sort(tdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(tdf.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
+
+	fdf=fdf.loc[fdf.term==term]
+
+	# now plut in real stats into the dataframe
+	for index, row in tdf.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.level
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+
+		try:
+				new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['std.error'].values
+		except:
+			print('zero')
+			#new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.estimate
+
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+	return new_tfr
 
 
 def extract_sensor_random_effect(rdata, alignment):
-    ''' take r data frame, extract sensor level random effect, remeber to specity the alignment 'rt' or 'clock' '''
-    df = rdata[None]
+	''' take r data frame, extract sensor level random effect, remeber to specity the alignment 'rt' or 'clock' '''
+	df = rdata[None]
 
-    # save a different df that contains the fix effect so we can get the p values
-    fdf = df.loc[df.effect=='fixed']
-    fdf = fdf.loc[fdf.alignment==alignment]
-    fdf.Freq = fdf.Freq.astype('float')
+	# save a different df that contains the fix effect so we can get the p values
+	fdf = df.loc[df.effect=='fixed']
+	fdf = fdf.loc[fdf.alignment==alignment]
+	fdf.Freq = fdf.Freq.astype('float')
 
-    # cut it down to only include sensor data
-    df = df.loc[df.group=='Sensor']
-    #select random effects
-    df = df.loc[df.effect=='ran_coefs']
-    #which alignment?
-    df = df.loc[df.alignment==alignment]
-    df.Freq = df.Freq.astype('float')
+	# cut it down to only include sensor data
+	df = df.loc[df.group=='Sensor']
+	#select random effects
+	df = df.loc[df.effect=='ran_coefs']
+	#which alignment?
+	df = df.loc[df.alignment==alignment]
+	df.Freq = df.Freq.astype('float')
 
-    return df, fdf
+	return df, fdf
 
 
 def create_tfr(df):
-    ''' function to create mne objet for ploting from R data frame from Michael
-    '''
-    df['Freq'] = df.Freq.str.lstrip('f_')
-    df['Freq'] = df.Freq.astype('float')
+	''' function to create mne objet for ploting from R data frame from Michael
+	'''
+	df['Freq'] = df.Freq.str.lstrip('f_')
+	df['Freq'] = df.Freq.astype('float')
 
-    # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
-    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
-    # the data array in this template is 306 ch by 20 freq by 464 time
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
 
-    # create custom tfr data array
-    time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
-    freq = np.sort(df.Freq.unique())
-    new_data = np.zeros((306, len(freq), len(time)))
-    # now plut in real stats into the dataframe
-    for index, row in df.iterrows():
-        t = row.Time
-        f = row.Freq
-        try:
-            ch = row.level
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        except:
-            ch = row.Sensor
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        #print(ch)
-        ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
-        new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.Estimate
+	# create custom tfr data array
+	time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(df.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
+	# now plut in real stats into the dataframe
+	for index, row in df.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.level
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+		new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.Estimate
 
-    new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
 
-    return new_tfr
+	return new_tfr
 
 
 def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', effect = 'zhigh'):
-    ''' function to create mne objet for ploting from fixed effect data frame from Alex
-    '''
-    #df['Freq'] = df.Freq.str.lstrip('f_')
-    inputdf['Freq'] = inputdf.Freq.astype('float')
-    df = inputdf.loc[(inputdf['reward_t']==reward) & (inputdf['regressor']==regressor)]
-    # creat TFR epoch object for plotting. Use the "info" in this file for measurement info
-    template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
-    # the data array in this template is 306 ch by 20 freq by 464 time
+	''' function to create mne objet for ploting from fixed effect data frame from Alex
+	'''
+	#df['Freq'] = df.Freq.str.lstrip('f_')
+	inputdf['Freq'] = inputdf.Freq.astype('float')
+	df = inputdf.loc[(inputdf['reward_t']==reward) & (inputdf['regressor']==regressor)]
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
 
-    # create custom tfr data array
-    time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
-    freq = np.sort(df.Freq.unique())
-    new_data = np.zeros((306, len(freq), len(time)))
-    # now plut in real stats into the dataframe
-    for index, row in df.iterrows():
-        t = row.Time
-        f = row.Freq
-        try:
-            ch = row.level
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        except:
-            ch = row.Sensor
-            ch = 'MEG'+ '{:0>4}'.format(ch)
-        #print(ch)
-        ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
-        new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row[effect]
+	# create custom tfr data array
+	time = np.sort(df.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(df.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
+	# now plut in real stats into the dataframe
+	for index, row in df.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.level
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+		new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row[effect]
 
-    new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
 
-    return new_tfr
+	return new_tfr
 
 
 
@@ -177,10 +232,9 @@ pe_rt_df, pe_rt_fdf, = extract_sensor_random_effect(pe_data, 'rt')
 pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 pe_t_rt_utfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)', threshold = False)
 pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
-pe_t_rt_utfr.plot_topo(yscale='log', picks='grad')
-pe_t_rt_utfr.plot_topomap(baseline=None, tmin = 0.7, tmax = 1, fmin=8, fmax=20, ch_type ='grad', cmap = 'Blues_r', size = 3, colorbar = True)
-pe_t_rt_utfr.plot_topomap(baseline=None, tmin = 0.7, tmax = 1, fmin=8, fmax=20, vmax=0, ch_type ='grad', cmap = 'Blues_r', size = 3, contours=0 , colorbar = True)
-pe_t_rt_utfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=4, fmax=8, vmin=0, ch_type ='grad', cmap = 'Reds', size = 3, contours=0 , colorbar = True)
+#pe_t_rt_utfr.plot_topo(yscale='log', picks='grad')
+pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.7, tmax = 1, fmin=8, fmax=20, vmax=0, ch_type ='grad', cmap = 'Blues_r', size = 6, contours=0 , colorbar = True)
+pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=4, fmax=8, vmin=0, ch_type ='grad', cmap = 'Reds', size = 6, contours=0 , colorbar = True)
 
 # fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 # times = np.arange(0.5, 1, 0.05)
@@ -201,10 +255,12 @@ reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='Blues_r')
 entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_ri.rds') #whole brain data
 entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
 #entropy_change_clock_df, entropy_change_clock_fdf = extract_sensor_random_effect(entropy_change_rdata, 'clock')
-entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =3 )
 entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
+entropy_change_se_tfr  = create_SE_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
+entropy_change_se_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
 
 #entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 #entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
