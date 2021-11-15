@@ -166,7 +166,7 @@ def create_tfr(df):
 	return new_tfr
 
 
-def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', effect = 'zhigh'):
+def create_fixed_effect_tfr(inputdf, reward = 'Omission', regressor = 'RT_t', effect = 'zhigh', threshold = True, se = 4):
 	''' function to create mne objet for ploting from fixed effect data frame from Alex
 	'''
 	#df['Freq'] = df.Freq.str.lstrip('f_')
@@ -253,25 +253,36 @@ reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='Blues_r')
 entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_ri.rds') #whole brain data
 entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
 #entropy_change_clock_df, entropy_change_clock_fdf = extract_sensor_random_effect(entropy_change_rdata, 'clock')
-entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =3 )
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =4 )
 entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
-entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
-entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
+entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0, tmax = 1, fmin=14, fmax=20, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+
+entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
 entropy_change_se_tfr  = create_SE_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
-entropy_change_se_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
+entropy_change_se_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
 entropy_change_se_tfr.plot_topo(yscale='log', picks='grad')
+
+entropy_change_fmr1_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_fmr1.rds') #whole brain data
+entropy_change_fmr1_rt_df, entropy_change_fmr1_rt_fdf = extract_sensor_random_effect(entropy_change_fmr1_rdata, 'rt')
+entropy_change_fmr1_rt_tfr = create_param_tfr(entropy_change_fmr1_rt_df, entropy_change_fmr1_rt_fdf, 'entropy_change_t:echange_f1_early', no_threshold = True)
+
+entropy_change_fmr2_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_fmr2.rds') #whole brain data
+entropy_change_fmr2_rt_df, entropy_change_fmr2_rt_fdf = extract_sensor_random_effect(entropy_change_fmr2_rdata, 'rt')
+
+
 #entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 #entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
 # entropy_clock_df, entropy_clock_fdf, = extract_sensor_random_effect(entropy_rdata, 'clock')
 #v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi', threshold = False)
 #v_entropy_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
 
-v_max_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_v_max.rds') #whole brain data
+v_max_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_v_max_ri.rds') #whole brain data
 v_max_rt_df, v_max_rt_fdf = extract_sensor_random_effect(v_max_rdata, 'rt')
 #v_max_clock_df, v_max_clock_fdf = extract_sensor_random_effect(v_max_rdata, 'clock')
 v_max_wi_rt_tfr = create_param_tfr(v_max_rt_df, v_max_rt_fdf, 'v_max_wi')
-v_max_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
-v_max_wi_rt_tfr.plot_topomap(baseline=None, tmin = 0.9, tmax = 0.95, fmin=6, fmax=16, vmin= 0, ch_type ='grad', cmap = 'Reds', contours=0, size = 3, colorbar = True)
+#v_max_wi_rt_tfr.plot_topo(yscale='log', picks='grad')
+v_max_wi_rt_tfr.plot_topomap(baseline=None, tmin = 0.9, tmax = 0.95, fmin=6, fmax=16, vmin= 0, ch_type ='grad', cmap = 'Reds', contours=0, size = 6, colorbar = True)
 
 # kld_rdata = pyreadr.read_r(datapath + 'kld/meg_ddf_wholebrain_kld.rds') #whole brain data
 # kld_rt_df, kld_rt_fdf = extract_sensor_random_effect(kld_rdata, 'rt')
@@ -292,7 +303,7 @@ v_max_wi_rt_tfr.plot_topomap(baseline=None, tmin = 0.9, tmax = 0.95, fmin=6, fma
 
 # turn dataframe into mne object for plotting
 # v_entropy_wi_rt_tfr = create_param_tfr(entropy_rt_df, entropy_rt_fdf, 'v_entropy_wi')
-# entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
+# entropy_change_fmr1_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
 # kld_v_entropy_wi_rt_tfr = create_param_tfr(kld_rt_df, kld_rt_fdf, 'v_entropy_wi')
 # v_entropy_wi_clock_tfr = create_param_tfr(entropy_clock_df, entropy_clock_fdf, 'v_entropy_wi')
 # entropy_change_t_clock_tfr = create_param_tfr(entropy_change_clock_df, entropy_change_clock_fdf, 'entropy_change_t')
