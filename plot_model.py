@@ -250,13 +250,23 @@ reward_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'reward_t')
 reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=4, fmax=8, vmax= -0.3, vmin= -0.31, ch_type ='grad', cmap = 'Blues_r', size = 3, colorbar = True)
 reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='Blues_r')
 
-entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_ri.rds') #whole brain data
+entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
 entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
 #entropy_change_clock_df, entropy_change_clock_fdf = extract_sensor_random_effect(entropy_change_rdata, 'clock')
-entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =4 )
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =7 )
 entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
-entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0, tmax = 1, fmin=14, fmax=20, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+
+ch_list = np.unique(np.where(entropy_change_t_rt_tfr.data[:,9:14,25:29]<0)[0])
+lists = []
+for c in ch_list:
+	lists.append(entropy_change_t_rt_tfr.ch_names[c])
+
+
+
+entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = -0.2, tmax = 0, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+
 
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
 entropy_change_se_tfr  = create_SE_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
