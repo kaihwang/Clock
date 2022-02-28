@@ -329,6 +329,9 @@ fbep = mne.concatenate_epochs(fp_eps, on_mismatch='ignore')
 del fp_eps
 data_cov = mne.compute_covariance(fbep, tmin=0, tmax=0.8, method='empirical', rank = 'info')
 del fbep #save memory
+data_cov.save("/home/kahwang/bkh/Clock/Source/data_cov.fif")
+noise_cov.save("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
+
 
 raw.info['bads'] = np.array(raw.ch_names)[np.array(raw.get_channel_types())=='mag'].tolist()
 filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori=None, reduce_rank = False, rank=None, depth=0.2)
@@ -341,6 +344,50 @@ stc = mne.beamformer.apply_lcmv(omission_stats, filter)
 img = stc.as_volume(mne.read_source_spaces(src))
 img = math_img("img1/1e10", img1 = img) 
 img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_fsaverage.nii.gz")
+
+
+### 2/28/2022
+#separate positive and negatives
+avdata = np.mean(entropy_change_t_rt_tfr.data[:,7:13,:], axis=(1))
+pos_avdata = avdata.copy()
+pos_avdata[pos_avdata<0] = 0
+entropy_change_ave_pos = mne.EvokedArray(data=pos_avdata, info = entropy_change_t_rt_tfr.info)
+entropy_change_ave_pos.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(entropy_change_ave_pos, filter)
+img = stc.as_volume(mne.read_source_spaces(src))
+img = math_img("img1/1e10", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/entropy_change_pos_fsaverage.nii.gz")
+
+avdata = np.mean(entropy_change_t_rt_tfr.data[:,7:13,:], axis=(1))
+neg_avdata = avdata.copy()
+neg_avdata[neg_avdata>0] = 0
+entropy_change_ave_neg = mne.EvokedArray(data=neg_avdata, info = entropy_change_t_rt_tfr.info)
+entropy_change_ave_neg.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(entropy_change_ave_neg, filter)
+img = stc.as_volume(mne.read_source_spaces(src))
+img = math_img("img1/1e10", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/entropy_change_neg_fsaverage.nii.gz")
+
+
+avdata = np.mean(Omission_RT_t_zdiff.data[:,5:8], axis=(1))
+pos_avdata = avdata.copy()
+pos_avdata[pos_avdata<0] = 0
+omission_stats_pos = mne.EvokedArray(data=pos_avdata, info = Omission_RT_t_zdiff.info)
+omission_stats_pos.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(omission_stats_pos, filter)
+img = stc.as_volume(mne.read_source_spaces(src))
+img = math_img("img1/1e10", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_pos_fsaverage.nii.gz")
+
+avdata = np.mean(Omission_RT_t_zdiff.data[:,5:8], axis=(1))
+neg_avdata = avdata.copy()
+neg_avdata[neg_avdata>0] = 0
+omission_stats_neg = mne.EvokedArray(data=neg_avdata, info = Omission_RT_t_zdiff.info)
+omission_stats_neg.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(omission_stats_neg, filter)
+img = stc.as_volume(mne.read_source_spaces(src))
+img = math_img("img1/1e10", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_neg_fsaverage.nii.gz")
 
 
 ##### 2/21/2022 #project subject level effect onto surface
@@ -456,6 +503,7 @@ def create_subject_tfr(sdf):
 	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
 
 	return new_tfr
+
 
 #check registration
 # trans_file = subjects_dir + 'trans/%s-trans.fif' %sub

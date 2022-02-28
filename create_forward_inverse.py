@@ -248,8 +248,7 @@ for subject in subjects:
     raw = mne.io.read_raw(raw_fname)
 
     try:
-        filters = mne.beamformer.make_lcmv(raw.info, vol_fwd, data_cov, reg=0.05,
-            noise_cov=noise_cov, pick_ori='max-power', weight_norm='unit-noise-gain', reduce_rank = True, rank=None)
+        filters = mne.beamformer.make_lcmv(raw.info, vol_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori='max-power', weight_norm='unit-noise-gain', reduce_rank = True, rank=None)
         #need to investigate the effect of reduced rank
 
         filter_fn = subjects_dir + '%s/MEG/%s-vol-beamformer-lcmv.h5' %(subject, subject)
