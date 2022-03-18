@@ -271,30 +271,9 @@ def project_stats_to_source(stats_evoke, outputname):
 	fn = "/data/backed_up/kahwang/Clock/Source/ave_%s_mni.nii.gz" %outputname
 	img_average.to_filename(fn)
 
-## Alex said:
-## I guess (i) entropy change in the late low beta suppression as the model of interest (7-17 Hz band at 400-750 ms) and as a sanity check contrast, (ii) theta suppression to reward omission (5-7 Hz and 0.2-0.4 s). 
 
 
-entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
-entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
-entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =0)
-#entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
-avdata = np.mean(entropy_change_t_rt_tfr.data[:,7:13,:], axis=(1))
-entropy_change_ave = mne.EvokedArray(data=avdata, info = entropy_change_t_rt_tfr.info)
-entropy_change_ave.plot_topomap(ch_type='grad')
-
-wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
-zstats_df = wholebrain_zstats_random_slope[None]
-Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
-#Omission_RT_t_zdiff.plot_topo(yscale='log', picks='grad')
-avdata = np.mean(Omission_RT_t_zdiff.data[:,5:8], axis=(1))
-omission_stats = mne.EvokedArray(data=avdata, info = Omission_RT_t_zdiff.info)
-omission_stats.plot_topomap(ch_type='grad')
-
-#project_stats_to_source(entropy_change_ave, "entropy_change")
-#project_stats_to_source(omission_stats, "reward_omission")
-
-### directly project to fsaverage.
+### Prepare directly project to fsaverage.
 raw_fname = subjects_dir + '11350/MEG/11350_clock_run1_dn_ds_sss_raw.fif'
 raw = mne.io.read_raw(raw_fname)
 src = os.path.join(subjects_dir, 'fsaverage/bem', 'fsaverage-vol-5-src.fif')
@@ -305,45 +284,107 @@ fs_fwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem, meg=
 
 #ave_img_data = np.zeros((82,97,85,1))
 #i=0
-fp_eps = []
-iti_eps = []
-for sub in subjects:
-	try:
-		#noise cov
-		Event_types = ['ITI']
-		ITI_ep = raw_to_epoch(sub, Event_types)
-		iti_eps.append(ITI_ep['ITI'])
-		#noise_cov = mne.compute_covariance(ITI_ep['ITI'], tmin = 0, tmax=1, method=['empirical'], rank = 'info', verbose=True)
-		Event_types = ['feedback']
-		fb_ep = raw_to_epoch(sub, Event_types)
-		fb_ep = fb_ep['feedback'].apply_baseline((None,None))
-		fp_eps.append(fb_ep)
-		#data_cov = mne.compute_covariance(fb_ep, tmin=0, tmax=0.8, method='empirical', rank = 'info')
-	except:
-		continue
-itiep = mne.concatenate_epochs(iti_eps, on_mismatch='ignore')	
-del iti_eps
-noise_cov = mne.compute_covariance(itiep, tmin = 0, tmax=1, method=['empirical'], rank = 'info', verbose=True)
-del itiep
-fbep = mne.concatenate_epochs(fp_eps, on_mismatch='ignore')	
-del fp_eps
-data_cov = mne.compute_covariance(fbep, tmin=0, tmax=0.8, method='empirical', rank = 'info')
-del fbep #save memory
-data_cov.save("/home/kahwang/bkh/Clock/Source/data_cov.fif")
-noise_cov.save("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
+# fp_eps = []
+# iti_eps = []
+# for sub in subjects:
+# 	try:
+# 		#noise cov
+# 		Event_types = ['ITI']
+# 		ITI_ep = raw_to_epoch(sub, Event_types)
+# 		iti_eps.append(ITI_ep['ITI'])
+# 		#noise_cov = mne.compute_covariance(ITI_ep['ITI'], tmin = 0, tmax=1, method=['empirical'], rank = 'info', verbose=True)
+# 		Event_types = ['feedback']
+# 		fb_ep = raw_to_epoch(sub, Event_types)
+# 		fb_ep = fb_ep['feedback'].apply_baseline((None,None))
+# 		fp_eps.append(fb_ep)
+# 		#data_cov = mne.compute_covariance(fb_ep, tmin=0, tmax=0.8, method='empirical', rank = 'info')
+# 	except:
+# 		continue
+# itiep = mne.concatenate_epochs(iti_eps, on_mismatch='ignore')	
+# del iti_eps
+# noise_cov = mne.compute_covariance(itiep, tmin = 0, tmax=1, method=['empirical'], rank = 'info', verbose=True)
+# del itiep
+# fbep = mne.concatenate_epochs(fp_eps, on_mismatch='ignore')	
+# del fp_eps
+# data_cov = mne.compute_covariance(fbep, tmin=0, tmax=0.8, method='empirical', rank = 'info')
+# del fbep #save memory
+# data_cov.save("/home/kahwang/bkh/Clock/Source/data_cov.fif")
+# noise_cov.save("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
 
-
-raw.info['bads'] = np.array(raw.ch_names)[np.array(raw.get_channel_types())=='mag'].tolist()
+data_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/data_cov.fif")
+noise_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
+raw.info['bads'] = np.array(raw.ch_names)[np.array(raw.get_channel_types())=='mag'].tolist() #get rid of mageometers
 filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori=None, reduce_rank = False, rank=None, depth=0.2)
-stc = mne.beamformer.apply_lcmv(entropy_change_ave, filter)
-img = stc.as_volume(mne.read_source_spaces(src))
-img = math_img("img1/1e10", img1 = img) 
-img.to_filename("/data/backed_up/kahwang/Clock/Source/entropy_change_fsaverage.nii.gz")
 
-stc = mne.beamformer.apply_lcmv(omission_stats, filter)
+
+
+# 3/18/2022
+# Early theta to reward omission: …/meg/plots/wholebrain/reward/meg_ddf_wholebrain_reward.rds
+# term == "reward_t" & t >= 0.2 & t <= 0.4 & Freq >= "5" &  Freq <= "8.4". 
+# Since we are looking at synchronization to omission, we can just get the negative effects of reward.
+# Late beta to signed PEs: …/meg/plots/wholebrain/signed_pe_rs/meg_ddf_wholebrain_signed_pe_rs.rds
+# term == "pe_max" & regressor == "signed_pe_rs" & t >= 0.4 & t <= 0.75 &  Freq >= "8.4" &  Freq <= "20"
+# Here, we also just need negative effects of RPE.
+ 
+signed_pe_rs_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_signed_pe_rs.rds') 
+signed_pe_rs_df, signed_pe_rs_fdf = extract_sensor_random_effect(signed_pe_rs_rdata, 'rt')
+signed_pe_rs_tfr = create_param_tfr(signed_pe_rs_df, signed_pe_rs_fdf, 'pe_max', se =0)
+signed_pe_rs_tfr.plot_topo(yscale='log', picks='grad')
+avdata = np.mean(signed_pe_rs_tfr.data[:,8:14,24:30], axis=(1,2))[:,np.newaxis]
+avdata[avdata>0] = 0
+signed_pe_rs_ave = mne.EvokedArray(data=avdata, info = signed_pe_rs_tfr.info)
+signed_pe_rs_ave.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(signed_pe_rs_ave, filter)
 img = stc.as_volume(mne.read_source_spaces(src))
 img = math_img("img1/1e10", img1 = img) 
-img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_fsaverage.nii.gz")
+img.to_filename("/data/backed_up/kahwang/Clock/Source/signed_pe_rs_fsaverage.nii.gz")
+
+
+reward_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_reward.rds') 
+reward_df, reward_fdf = extract_sensor_random_effect(reward_rdata, 'rt')
+reward_tfr = create_param_tfr(reward_df, reward_fdf, 'reward_t', se =0)
+reward_tfr.plot_topo(yscale='log', picks='grad')
+avdata = np.mean(reward_tfr.data[:,5:9,19:24], axis=(1,2))[:,np.newaxis]
+avdata[avdata>0] = 0
+reward_ave = mne.EvokedArray(data=avdata, info = reward_tfr.info)
+#reward_ave.plot_topomap(ch_type='grad')
+stc = mne.beamformer.apply_lcmv(reward_ave, filter)
+img = stc.as_volume(mne.read_source_spaces(src))
+img = math_img("img1/1e10", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_fsaverage.nii.gz")
+
+
+
+# before 2/28/
+## Alex said:
+## I guess (i) entropy change in the late low beta suppression as the model of interest (7-17 Hz band at 400-750 ms) and as a sanity check contrast, (ii) theta suppression to reward omission (5-7 Hz and 0.2-0.4 s). 
+#entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
+#entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
+#entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =0)
+#entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+#avdata = np.mean(entropy_change_t_rt_tfr.data[:,7:13,:], axis=(1))
+#entropy_change_ave = mne.EvokedArray(data=avdata, info = entropy_change_t_rt_tfr.info)
+#entropy_change_ave.plot_topomap(ch_type='grad')
+
+#wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+#zstats_df = wholebrain_zstats_random_slope[None]
+#Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
+#Omission_RT_t_zdiff.plot_topo(yscale='log', picks='grad')
+#avdata = np.mean(Omission_RT_t_zdiff.data[:,5:8], axis=(1))
+#omission_stats = mne.EvokedArray(data=avdata, info = Omission_RT_t_zdiff.info)
+#omission_stats.plot_topomap(ch_type='grad')
+#project_stats_to_source(entropy_change_ave, "entropy_change")
+#project_stats_to_source(omission_stats, "reward_omission")
+
+#stc = mne.beamformer.apply_lcmv(entropy_change_ave, filter)
+#img = stc.as_volume(mne.read_source_spaces(src))
+#img = math_img("img1/1e10", img1 = img) 
+#img.to_filename("/data/backed_up/kahwang/Clock/Source/entropy_change_fsaverage.nii.gz")
+
+#stc = mne.beamformer.apply_lcmv(omission_stats, filter)
+#img = stc.as_volume(mne.read_source_spaces(src))
+#img = math_img("img1/1e10", img1 = img) 
+#img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_fsaverage.nii.gz")
 
 
 ### 2/28/2022
@@ -390,7 +431,7 @@ img = math_img("img1/1e10", img1 = img)
 img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_neg_fsaverage.nii.gz")
 
 
-##### 2/21/2022 #project subject level effect onto surface
+##### 2/21/2022 #project subject level effect onto surface. STOP!
 subjects_dir = '/data/backed_up/kahwang/Clock/'
 subjects = np.loadtxt('/home/kahwang/bin/Clock/subjects', dtype=int)
 #channels_list = np.load('/home/kahwang/bin/Clock/channel_list.npy')
