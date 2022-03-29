@@ -49,6 +49,11 @@ def create_param_tfr(sdf, fdf, term, threshold = False, threshold_se = True, se=
 			ch = 'MEG'+ '{:0>4}'.format(ch)
 		#print(ch)
 		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+		
+		try:
+			row.estimate = row.combined_effect
+		except:
+			1+1
 
 		try:
 			if threshold & (fdf.loc[(fdf.Time==t) & (fdf.Freq ==f)]['p_fdr'].values<0.05):
@@ -231,8 +236,8 @@ pe_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)')
 pe_t_rt_utfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'scale(abs_pe)', threshold = False)
 pe_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 #pe_t_rt_utfr.plot_topo(yscale='log', picks='grad')
-pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.7, tmax = 1, fmin=8, fmax=20, vmax=0, ch_type ='grad', cmap = 'Blues_r', size = 6, contours=0 , colorbar = True)
-pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=4, fmax=8, vmin=0, ch_type ='grad', cmap = 'Reds', size = 6, contours=0 , colorbar = True)
+#pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.7, tmax = 1, fmin=8, fmax=20, vmax=0, ch_type ='grad', cmap = 'Blues_r', size = 6, contours=0 , colorbar = True)
+#pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=4, fmax=8, vmin=0, ch_type ='grad', cmap = 'Reds', size = 6, contours=0 , colorbar = True)
 
 # fig, axis = plt.subplots(3, 5, squeeze = False, figsize=(25,10))
 # times = np.arange(0.5, 1, 0.05)
@@ -246,28 +251,31 @@ pe_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.6, fmin=4, fmax=8, 
 #     pe_t_rt_utfr.plot_topomap(baseline=None, tmin = time, tmax = time+0.05, fmin=4, fmax=8, ch_type ='grad', title = ('4 to 8 hz at time %s' %np.round(time, 2)), show=False, axes = axis[n//5, n%5])
 # plt.show()
 
-reward_t_rt_tfr = create_param_tfr(pe_rt_df, pe_rt_fdf, 'reward_t')
-reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=4, fmax=8, vmax= -0.3, vmin= -0.31, ch_type ='grad', cmap = 'Blues_r', size = 3, colorbar = True)
-reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='Blues_r')
+reward_data = pyreadr.read_r(datapath + "meg_ddf_wholebrain_reward.rds")
+reward_rt_df, reward_rt_fdf, = extract_sensor_random_effect(reward_data, 'rt') 
+reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t', se =0)
+reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='viridis')
+p3 = reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= 0, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
 
 entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
 entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
 #entropy_change_clock_df, entropy_change_clock_fdf = extract_sensor_random_effect(entropy_change_rdata, 'clock')
-entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =7 )
-entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
-entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
-entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =0 )
+#entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+#entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+#entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
+p1 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+p2 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.1, fmin=8.4, fmax=16.8, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+
+
+
 
 ch_list = np.unique(np.where(entropy_change_t_rt_tfr.data[:,9:14,25:29]<0)[0])
 lists = []
 for c in ch_list:
 	lists.append(entropy_change_t_rt_tfr.ch_names[c])
 
-
-
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = -0.2, tmax = 0, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
-
-
 entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
 entropy_change_se_tfr  = create_SE_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t')
 entropy_change_se_tfr.plot_topomap(baseline=None, tmin = 1, tmax = 1.05, fmin=3, fmax=6, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)

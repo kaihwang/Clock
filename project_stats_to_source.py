@@ -353,6 +353,11 @@ img = stc.as_volume(mne.read_source_spaces(src))
 img = math_img("img1/1e10", img1 = img) 
 img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_fsaverage.nii.gz")
 
+#3/28 plot sensor
+# reward_rdata = pyreadr.read_r(datapath + 'meg_reward_sensor_subject_ranefs.rds') #whole brain data
+# reward_tfr = create_ran_tfr(reward_rdata]None)
+# reward_tfr.plot_topo(yscale='log', picks='grad',cmap='viridis')
+# reward_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= 0.3, vmin= -0.3, ch_type ='grad', cmap = 'viridis', size = 6, colorbar = True)
 
 
 # before 2/28/
@@ -545,7 +550,67 @@ def create_subject_tfr(sdf):
 
 	return new_tfr
 
+def create_fixed_tfr(sdf):
+	''' create single subject tfr object
+	'''
+	sdf['Freq'] = sdf.Freq.astype('float')
 
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
+
+	# create custom tfr data array
+	time = np.sort(sdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(sdf.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
+	# now plut in real stats into the dataframe
+	for index, row in sdf.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+		new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.fixed_effect #from Michael's email
+
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+	return new_tfr
+
+def create_ran_tfr(sdf):
+	''' create single subject tfr object
+	'''
+	sdf['Freq'] = sdf.Freq.astype('float')
+
+	# creat TFR epoch object for plotting. Use the "info" in this file for measurement info
+	template_TFR = mne.time_frequency.read_tfrs(datapath + 'Group/group_feedback_power-tfr.h5')[0]
+	# the data array in this template is 306 ch by 20 freq by 464 time
+
+	# create custom tfr data array
+	time = np.sort(sdf.Time.unique()) #what is the diff between "Time" and "t" in the dataframe?
+	freq = np.sort(sdf.Freq.unique())
+	new_data = np.zeros((306, len(freq), len(time)))
+	# now plut in real stats into the dataframe
+	for index, row in sdf.iterrows():
+		t = row.Time
+		f = row.Freq
+		try:
+			ch = row.sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		except:
+			ch = row.Sensor
+			ch = 'MEG'+ '{:0>4}'.format(ch)
+		#print(ch)
+		ch_idx = mne.pick_channels(template_TFR.ch_names, [ch])
+		new_data[ch_idx, np.where(freq==f)[0], np.where(time==t)[0]] = row.sensor_ran_coefs #from Michael's email
+
+	new_tfr = mne.time_frequency.AverageTFR(template_TFR.info, new_data, time, freq, 1)
+
+	return new_tfr	
 #check registration
 # trans_file = subjects_dir + 'trans/%s-trans.fif' %sub
 
