@@ -120,7 +120,10 @@ def create_SE_tfr(sdf, fdf, term):
 
 def extract_sensor_random_effect(rdata, alignment):
 	''' take r data frame, extract sensor level random effect, remeber to specity the alignment 'rt' or 'clock' '''
-	df = rdata[None]
+	try:
+		df = rdata[None]
+	except:
+		df = rdata  #sometimes not in r format
 
 	# save a different df that contains the fix effect so we can get the p values
 	fdf = df.loc[df.effect=='fixed']
@@ -255,7 +258,14 @@ reward_data = pyreadr.read_r(datapath + "meg_ddf_wholebrain_reward.rds")
 reward_rt_df, reward_rt_fdf, = extract_sensor_random_effect(reward_data, 'rt') 
 reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t', se =0)
 reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='viridis')
-p3 = reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= 0, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+p3 = reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= -0.25, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+
+
+abs_pe_data = pyreadr.read_r(datapath + "meg_ddf_wholebrain_abs_pe.rds")
+abs_pe_df, abs_pe_fdf, = extract_sensor_random_effect(reward_data, 'rt') 
+abs_pe_rt_tfr = create_param_tfr(abs_pe_df, abs_pe_fdf, 'abs_pe', se =0)
+abs_pe_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='viridis')
+p4 = abs_pe_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= -0.002, vmin= -0.004, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
 
 entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
 entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
@@ -264,12 +274,70 @@ entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_
 #entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
 #entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 0.85, fmin=6, fmax=16, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
 #entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1, fmin=14, fmax=20, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 6, colorbar = True)
-p1 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
-p2 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.1, fmin=8.4, fmax=16.8, vmax= 0, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+p1 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= -0.04, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+p2 = entropy_change_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.8, tmax = 1.1, fmin=8.4, fmax=16.8, vmax= -0.04, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
 
 
 
+### April 2022, plot separate by reward function conditions
+# entropy
+ec_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_ec_rewfunc.rds')[None]
+for cond in ['CEV', 'CEVR', 'DEV', 'IEV']:
+	ec_df = ec_change_rdata.loc[ec_change_rdata['rewFunc'] == cond]
+	ec_df, ec_fdf = extract_sensor_random_effect(ec_df, 'rt')
+	ec_tfr = create_param_tfr(ec_df, ec_fdf, 'entropy_change_t', se =0 )
+	p5 = ec_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= -0.04, vmin=-0.08, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	p5.savefig("/home/kahwang/RDSS/tmp/ec_%s.tiff" %cond)
 
+#reward
+reward_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_reward_rewfunc.rds')[None]
+for cond in ['CEV', 'CEVR', 'DEV', 'IEV']:
+	reward_df = reward_rdata.loc[reward_rdata['rewFunc'] == cond]
+	reward_df, reward_fdf = extract_sensor_random_effect(reward_df, 'rt')
+	reward_tfr = create_param_tfr(reward_df, reward_fdf, 'reward_t', se =0 )
+	p6 = reward_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= -0.25, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	p6.savefig("/home/kahwang/RDSS/tmp/reward_%s.tiff" %cond)
+
+#next RT
+rt_next_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_rt_next.rds')[None]
+for cond in ['CEV', 'CEVR', 'DEV', 'IEV']:
+	rt_next_df = rt_next_rdata.loc[rt_next_rdata['rewFunc'] == cond]
+	rt_next_df, rt_next_fdf = extract_sensor_random_effect(rt_next_df, 'rt')
+	rt_next_tfr = create_param_tfr(rt_next_df, rt_next_fdf, 'rt_next', se =0 )
+	p6 = rt_next_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= 0.3, vmin= -0.3, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	p6.savefig("/home/kahwang/RDSS/tmp/nextRT_%s.tiff" %cond)
+
+
+# CEVR
+ec_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_ec_rewfunc.rds')[None]
+for cond in ['CEVR']:
+	ec_df = ec_change_rdata.loc[ec_change_rdata['rewFunc'] == cond]
+	ec_df, ec_fdf = extract_sensor_random_effect(ec_df, 'rt')
+	ec_tfr = create_param_tfr(ec_df, ec_fdf, 'entropy_change_t', se =0 )
+	p5 = ec_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= 0, vmin=-0.025, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	p5.savefig("/home/kahwang/RDSS/tmp/ec_%s.tiff" %cond)
+
+#reward
+reward_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_reward_rewfunc.rds')[None]
+for cond in ['CEVR']:
+	reward_df = reward_rdata.loc[reward_rdata['rewFunc'] == cond]
+	reward_df, reward_fdf = extract_sensor_random_effect(reward_df, 'rt')
+	reward_tfr = create_param_tfr(reward_df, reward_fdf, 'reward_t', se =0 )
+	p6 = reward_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= -0.25, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	#p6.savefig("/home/kahwang/RDSS/tmp/reward_%s.tiff" %cond)
+
+#next RT
+rt_next_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_rt_next.rds')[None]
+for cond in ['CEVR']:
+	rt_next_df = rt_next_rdata.loc[rt_next_rdata['rewFunc'] == cond]
+	rt_next_df, rt_next_fdf = extract_sensor_random_effect(rt_next_df, 'rt')
+	rt_next_tfr = create_param_tfr(rt_next_df, rt_next_fdf, 'rt_next', se =0 )
+	#p6 = rt_next_tfr.plot_topomap(baseline=None, tmin = 0.1, tmax = 4, fmin=8.4, fmax=16.8, vmax= 0.3, vmin= -0.3, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+	#p6.savefig("/home/kahwang/RDSS/tmp/ec_%s.tiff" %cond)
+
+
+
+####
 ch_list = np.unique(np.where(entropy_change_t_rt_tfr.data[:,9:14,25:29]<0)[0])
 lists = []
 for c in ch_list:
@@ -287,7 +355,6 @@ entropy_change_fmr1_rt_tfr = create_param_tfr(entropy_change_fmr1_rt_df, entropy
 
 entropy_change_fmr2_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change_fmr2.rds') #whole brain data
 entropy_change_fmr2_rt_df, entropy_change_fmr2_rt_fdf = extract_sensor_random_effect(entropy_change_fmr2_rdata, 'rt')
-
 
 #entropy_rdata = pyreadr.read_r(datapath + 'entropy/meg_ddf_wholebrain_entropy.rds') #whole brain data
 #entropy_rt_df, entropy_rt_fdf, = extract_sensor_random_effect(entropy_rdata, 'rt')
@@ -734,5 +801,10 @@ Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.55, fmin=2,
 # entropy_wi_fixed_tfr = create_param_fixed_tfr(fdf, 'v_entropy_wi')
 #
 #
+
+
+### apri 4 2022
+bdata = pyreadr.read_r(datapath + 'MEG_compact_trial_df.RDS')
+
 
 # end
