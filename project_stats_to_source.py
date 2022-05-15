@@ -276,11 +276,14 @@ def project_stats_to_source(stats_evoke, outputname):
 ### Prepare directly project to fsaverage.
 raw_fname = subjects_dir + '11350/MEG/11350_clock_run1_dn_ds_sss_raw.fif'
 raw = mne.io.read_raw(raw_fname)
-src = os.path.join(subjects_dir, 'fsaverage/bem', 'fsaverage-vol-5-src.fif')
+vol_src = os.path.join(subjects_dir, 'fsaverage/bem', 'fsaverage-vol-5-src.fif')
 bem = os.path.join(subjects_dir, 'fsaverage/bem', 'fsaverage-5120-5120-5120-bem-sol.fif')
 subject = 'fsaverage'
 trans = 'fsaverage'  # MNE has a built-in fsaverage transformation
-fs_fwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem, meg=True, eeg=False, n_jobs=32, verbose=True)
+fs_fwd = mne.make_forward_solution(raw.info, trans=trans, src=vol_src, bem=bem, meg=True, eeg=False, n_jobs=32, verbose=True)
+
+src = os.path.join(subjects_dir, 'fsaverage/bem', 'fsaverage-ico-5-src.fif') 
+surf_fwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem, meg=True, eeg=False, n_jobs=32, verbose=True)
 
 #ave_img_data = np.zeros((82,97,85,1))
 #i=0
@@ -314,7 +317,126 @@ fs_fwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem, meg=
 data_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/data_cov.fif")
 noise_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
 raw.info['bads'] = np.array(raw.ch_names)[np.array(raw.get_channel_types())=='mag'].tolist() #get rid of mageometers
-filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori=None, reduce_rank = False, rank=None, depth=0.2)
+filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori='max-power', reduce_rank = False, rank=None,  depth = 0.2, weight_norm ='nai')
+surf_filter = mne.beamformer.make_lcmv(raw.info, surf_fwd, data_cov, reg=0.05, pick_ori=None, noise_cov=noise_cov, reduce_rank = False, rank=None, depth = 0.8, weight_norm ='nai')
+
+
+#5/1, normalize entropy changea and reward omission
+entropy_change_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_entropy_change.rds') #whole brain data
+entropy_change_rt_df, entropy_change_rt_fdf = extract_sensor_random_effect(entropy_change_rdata, 'rt')
+entropy_change_t_rt_tfr = create_param_tfr(entropy_change_rt_df, entropy_change_rt_fdf, 'entropy_change_t', se =0)
+del entropy_change_t_rt_tfr.info['buffer_size_sec']
+#entropy_change_t_rt_tfr.plot_topo(yscale='log', picks='grad')
+avdata = np.mean(entropy_change_t_rt_tfr.data[:,8:13,:], axis=(1))
+entropy_change_ave = mne.EvokedArray(data=avdata, info = entropy_change_t_rt_tfr.info)
+#entropy_change_ave.plot_topomap(ch_type='grad')
+
+avdata = np.mean(entropy_change_t_rt_tfr.data[:,8:13,:], axis=(1))
+neg_avdata = avdata.copy()
+neg_avdata[neg_avdata>0] = 0
+neg_avdata = neg_avdata /  np.std(avdata[avdata!=0])
+entropy_change_ave_neg = mne.EvokedArray(data=neg_avdata, info = entropy_change_t_rt_tfr.info, comment = 'entropy')
+entropy_change_ave_neg.times = entropy_change_t_rt_tfr.times
+#entropy_change_ave_neg.plot_topomap(ch_type='grad')
+
+# wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+# zstats_df = wholebrain_zstats_random_slope[None]
+# Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
+# #Omission_RT_t_zdiff.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.55, fmin=2, fmax=6, vmax= 0, ch_type ='grad', cmap = 'Blues_r', contours=0, size = 3, colorbar = True)
+# del Omission_RT_t_zdiff.info['buffer_size_sec']
+
+reward_data = pyreadr.read_r(datapath + "meg_ddf_wholebrain_reward.rds")
+reward_rt_df, reward_rt_fdf, = extract_sensor_random_effect(reward_data, 'rt') 
+reward_t_rt_tfr = create_param_tfr(reward_rt_df, reward_rt_fdf, 'reward_t', se =0)
+del reward_t_rt_tfr.info['buffer_size_sec']
+#reward_t_rt_tfr.plot_topo(yscale='log', picks='grad',cmap='viridis')
+reward_t_rt_tfr.plot_topomap(baseline=None, tmin = 0.5, tmax = 0.7, fmin=5, fmax=8, vmax= -0.25, vmin= -0.35, ch_type ='grad', cmap = 'viridis', contours=0, size = 6, colorbar = False)
+avdata = np.mean(reward_t_rt_tfr.data[:,5:8], axis=(1))
+avdata = avdata / np.std(avdata[avdata!=0])
+reward_stats = mne.EvokedArray(data=avdata, info = reward_t_rt_tfr.info)
+reward_stats.times = reward_t_rt_tfr.times
+
+#omission_stats.plot_topomap(ch_type='grad')
+
+#vol
+stc = mne.beamformer.apply_lcmv(entropy_change_ave_neg, filter)
+img = stc.as_volume(mne.read_source_spaces(vol_src))
+img = math_img("img1/1e12", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/entropy_change_neg_fsaverage_scaled.nii.gz")
+
+stc = mne.beamformer.apply_lcmv(reward_stats, filter)
+img = stc.as_volume(mne.read_source_spaces(vol_src))
+img = math_img("img1/1e12", img1 = img) 
+img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_omission_fsaverage_scaled.nii.gz")
+
+#surf inverse
+stc_ec = mne.beamformer.apply_lcmv(entropy_change_ave_neg, surf_filter)
+stc_ec.tstep = 0.048
+stc_ec.tmin = stc_ec.tmin-0.3 #realign to outcome
+A = stc_ec.data.copy() 
+stc_ec.data = A / 10e12
+stc_ec.save("/home/kahwang/RDSS/tmp/entropy_change_neg_fsaverage_scaled", overwrite=True)
+
+stc_rew = mne.beamformer.apply_lcmv(reward_stats, surf_filter)
+stc_rew.tstep = 0.048
+stc_rew.tmin = stc_rew.tmin-0.3 #realign to outcome
+A = stc_rew.data.copy() 
+stc_rew.data = A / 10e12
+stc_rew.save("/home/kahwang/RDSS/tmp/reward_omission_fsaverage_scaled", overwrite=True)
+
+
+
+### load stc using rdss mount to personal computer, please server doesn't support rendering. Then visualize
+SUBJECTS_DIR = '/Users/kahwang/mne_data/MNE-sample-data/subjects'
+stc_ec = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/entropy_change_neg_fsaverage_scaled")
+stc_rew = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/reward_omission_fsaverage_scaled")
+
+stc_ec.plot(subject ='fsaverage', time_viewer=True)
+stc_rew.plot(subject ='fsaverage', time_viewer=True)
+
+# In [233]: np.percentile(stc_ec.data[:,27], 95)
+# Out[233]: 5.409018430213081
+
+# In [234]: np.percentile(stc_ec.data[:,27], 25)
+# Out[234]: 1.4956043093021725
+
+# In [235]: np.percentile(stc_rew.data[:,20], 95)
+# Out[235]: 1.620655712714597
+
+# In [236]: np.percentile(stc_rew.data[:,20], 25)
+# Out[236]: 0.4106993863310911
+
+
+# ## MNE/dSPM
+# from mne.minimum_norm import make_inverse_operator, apply_inverse
+# inverse_operator = make_inverse_operator(entropy_change_ave_neg.info, surf_fwd, noise_cov, loose=0.2, depth=0.8)
+# method = "dSPM"
+# snr = 3.
+# lambda2 = 1. / snr ** 2
+# stc_ec_dspm, residual = apply_inverse(entropy_change_ave_neg, inverse_operator, lambda2,
+#                               method=method, pick_ori=None,
+#                               return_residual=True, verbose=True)
+# stc_ec_dspm.tstep = 0.048
+# stc_ec_dspm.tmin = stc_ec_dspm.tmin-0.3 
+# A = stc_ec_dspm.data.copy() 
+# stc_ec_dspm.data = A / 10e11
+# stc_ec_dspm.save("/home/kahwang/RDSS/tmp/entropy_change_neg_fsaverage_scaled_dspm", overwrite=True)
+
+# stc_rew_dspm, residual = apply_inverse(reward_stats, inverse_operator, lambda2,
+#                               method=method, pick_ori=None,
+#                               return_residual=True, verbose=True)
+# stc_rew_dspm.tstep = 0.048
+# stc_rew_dspm.tmin = stc_rew_dspm.tmin-0.3 
+# A = stc_rew_dspm.data.copy() 
+# stc_rew_dspm.data = A / 10e11
+# stc_rew_dspm.save("/home/kahwang/RDSS/tmp/reward_omission_fsaverage_scaled_dspm", overwrite=True)
+
+# SUBJECTS_DIR = '/Users/kahwang/mne_data/MNE-sample-data/subjects'
+# stc_ec = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/entropy_change_neg_fsaverage_scaled_dspm")
+# stc_rew = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/reward_omission_fsaverage_scaled_dspm")
+
+# stc_ec.plot(subject ='fsaverage', time_viewer=True)
+# stc_rew.plot(subject ='fsaverage', time_viewer=True)
 
 
 
@@ -340,18 +462,16 @@ img = math_img("img1/1e10", img1 = img)
 img.to_filename("/data/backed_up/kahwang/Clock/Source/signed_pe_rs_fsaverage.nii.gz")
 
 
-reward_rdata = pyreadr.read_r(datapath + 'meg_ddf_wholebrain_reward.rds') 
-reward_df, reward_fdf = extract_sensor_random_effect(reward_rdata, 'rt')
-reward_tfr = create_param_tfr(reward_df, reward_fdf, 'reward_t', se =0)
-reward_tfr.plot_topo(yscale='log', picks='grad')
-avdata = np.mean(reward_tfr.data[:,5:9,19:24], axis=(1,2))[:,np.newaxis]
-avdata[avdata>0] = 0
-reward_ave = mne.EvokedArray(data=avdata, info = reward_tfr.info)
-#reward_ave.plot_topomap(ch_type='grad')
-stc = mne.beamformer.apply_lcmv(reward_ave, filter)
-img = stc.as_volume(mne.read_source_spaces(src))
-img = math_img("img1/1e10", img1 = img) 
-img.to_filename("/data/backed_up/kahwang/Clock/Source/reward_fsaverage.nii.gz")
+
+#wholebrain_zstats_random_slope = pyreadr.read_r(datapath + 'meg_rdf_wholebrain_zstats_random_slope.rds')
+#zstats_df = wholebrain_zstats_random_slope[None]
+#Omission_RT_t_zdiff = create_fixed_effect_tfr(zstats_df, 'Omission', 'RT_t' ,'zdiff')
+#Omission_RT_t_zdiff.plot_topo(yscale='log', picks='grad')
+#avdata = np.mean(Omission_RT_t_zdiff.data[:,5:8], axis=(1))
+#omission_stats = mne.EvokedArray(data=avdata, info = Omission_RT_t_zdiff.info)
+#omission_stats.plot_topomap(ch_type='grad')
+#project_stats_to_source(entropy_change_ave, "entropy_change")
+#project_stats_to_source(omission_stats, "reward_omission")
 
 #3/28 plot sensor
 # reward_rdata = pyreadr.read_r(datapath + 'meg_reward_sensor_subject_ranefs.rds') #whole brain data

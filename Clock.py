@@ -8,7 +8,7 @@ import mne as mne
 import os.path as op
 import glob
 from functools import partial
-from autoreject import compute_thresholds
+#from autoreject import compute_thresholds
 from mne.utils import check_random_state
 #from collections import defaultdict
 import sys
