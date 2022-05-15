@@ -317,7 +317,7 @@ surf_fwd = mne.make_forward_solution(raw.info, trans=trans, src=src, bem=bem, me
 data_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/data_cov.fif")
 noise_cov = mne.read_cov("/home/kahwang/bkh/Clock/Source/noise_cov.fif")
 raw.info['bads'] = np.array(raw.ch_names)[np.array(raw.get_channel_types())=='mag'].tolist() #get rid of mageometers
-filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori='max-power', reduce_rank = False, rank=None,  depth = 0.2, weight_norm ='nai')
+filter = mne.beamformer.make_lcmv(raw.info, fs_fwd, data_cov, reg=0.05, noise_cov=noise_cov, pick_ori=None, reduce_rank = False, rank=None,  depth = 0.8, weight_norm ='nai')
 surf_filter = mne.beamformer.make_lcmv(raw.info, surf_fwd, data_cov, reg=0.05, pick_ori=None, noise_cov=noise_cov, reduce_rank = False, rank=None, depth = 0.8, weight_norm ='nai')
 
 
