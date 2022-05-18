@@ -391,8 +391,8 @@ SUBJECTS_DIR = '/Users/kahwang/mne_data/MNE-sample-data/subjects'
 stc_ec = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/entropy_change_neg_fsaverage_scaled")
 stc_rew = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/reward_omission_fsaverage_scaled")
 
-stc_ec.plot(subject ='fsaverage', time_viewer=True)
-stc_rew.plot(subject ='fsaverage', time_viewer=True)
+stc_ec.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "both")
+stc_rew.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "both")
 
 # In [233]: np.percentile(stc_ec.data[:,27], 95)
 # Out[233]: 5.409018430213081
