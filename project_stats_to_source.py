@@ -394,6 +394,11 @@ stc_rew = mne.read_source_estimate("/Volumes/rdss_kahwang/tmp/reward_omission_fs
 stc_ec.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "both")
 stc_rew.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "both")
 
+stc_ec.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "lh")
+stc_ec.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "rh")
+stc_rew.plot(subject ='fsaverage', time_viewer=True, background = 'white', hemi = "lh")
+
+
 # In [233]: np.percentile(stc_ec.data[:,27], 95)
 # Out[233]: 5.409018430213081
 
